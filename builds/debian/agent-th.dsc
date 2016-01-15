@@ -13,7 +13,7 @@ Build-Depends: bison, debhelper (>= 8),
     libzmq4-dev,
     libczmq-dev,
     libmlm-dev,
-    libbiosapi-dev,
+    core-dev,
     dh-autoreconf
 
 
