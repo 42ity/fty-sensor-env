@@ -21,7 +21,7 @@ src_libth_la_SOURCES = \
     src/libth.cc \
     src/platform.h
 
-src_libth_la_CPPFLAGS = ${AM_CPPFLAGS} -D__STDC_FORMAT_MACROS
+src_libth_la_CPPFLAGS = ${AM_CPPFLAGS}
 src_libth_la_CXXFLAGS = ${AM_CXXFLAGS}
 
 src_libth_la_LDFLAGS = \
@@ -44,7 +44,7 @@ src_libth_la_LIBADD = ${project_libs}
 
 if WITH_AGENT_TH
 bin_PROGRAMS += src/agent-th
-src_agent_th_CPPFLAGS = ${AM_CPPFLAGS}
+src_agent_th_CPPFLAGS = ${AM_CPPFLAGS} -D__STDC_FORMAT_MACROS
 src_agent_th_LDADD = ${program_libs}
 src_agent_th_SOURCES = src/agent-th.cc
 if WITH_SYSTEMD

@@ -1,3 +1,7 @@
 # agent-tg
 
 Component sending temperature and humidity data from RackController's sensors
+
+Attention: file src/Makemodule.am was modified in order to compile it for CentOS
+line should look like this: src_agent_th_CPPFLAGS = ${AM_CPPFLAGS} -D__STDC_FORMAT_MACROS (added definition)
+
