@@ -112,7 +112,7 @@ ymsg_t* get_measurement(char* what) {
         if(!device_connected(fd)) {
             if(fd > 0)
                 close(fd);
-            zsys_warning("No sensor attached to %s", path.c_str());
+            zsys_debug("No sensor attached to %s", path.c_str());
             data.broken = true;
         } else {
             reset_device(fd);
