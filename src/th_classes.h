@@ -24,6 +24,5 @@
 #include "../include/agent_th.h"
 
 //  Internal API
-#include "libth.h"
 
 #endif

@@ -32,7 +32,6 @@ noinst_LTLIBRARIES =
 TESTS =
 
 EXTRA_DIST = \
-    src/libth.h \
     src/th_classes.h \
     LICENSE \
     version.sh

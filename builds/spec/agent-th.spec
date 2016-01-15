@@ -36,6 +36,41 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 %description
 agent-th grab temperature and humidity data from some-sensor.
 
+%package -n libth0
+Group:          System/Libraries
+Summary:        grab temperature and humidity data from some-sensor
+
+%description -n libth0
+agent-th grab temperature and humidity data from some-sensor.
+This package contains shared library.
+
+%post -n libth0 -p /sbin/ldconfig
+%postun -n libth0 -p /sbin/ldconfig
+
+%files -n libth0
+%defattr(-,root,root)
+%doc COPYING
+%{_libdir}/libth.so.*
+
+%package devel
+Summary:        grab temperature and humidity data from some-sensor
+Group:          System/Libraries
+Requires:       libth0 = %{version}
+Requires:       libsodium-devel
+Requires:       zeromq-devel
+Requires:       czmq-devel
+Requires:       malamute-devel
+Requires:       core-devel
+
+%description devel
+agent-th grab temperature and humidity data from some-sensor.
+This package contains development files.
+
+%files devel
+%defattr(-,root,root)
+%{_includedir}/*
+%{_libdir}/libth.so
+%{_libdir}/pkgconfig/libth.pc
 
 %prep
 %setup -q

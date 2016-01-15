@@ -30,6 +30,24 @@ Build-Depends: bison, debhelper (>= 8),
     dh-autoreconf,
     systemd
 
+Package: libth0
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: agent-th
+ This package contains shared library for agent-th: grab temperature and humidity data from some-sensor
+
+Package: agent-th-dev
+Architecture: all
+Section: libdevel
+Depends:
+    libsodium-dev,
+    libzmq4-dev,
+    libczmq-dev,
+    libmlm-dev,
+    libbiosapi-dev,
+    libth0 (= ${binary:Version})
+Description: development files for agent-th
+ This package contains development files for agent-th: grab temperature and humidity data from some-sensor
 
 Package: agent-th
 Architecture: any

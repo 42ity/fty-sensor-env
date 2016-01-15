@@ -15,7 +15,7 @@
         <use project = "malamute"/>
     </use>
 
-    <class name = "libth" private="1">Internal lib</class>
+    <class name = "libth">Temperature and humidity lib</class>
     <main name = "agent-th" service = "1" no_config = "1">
         Grab temperature and humidity data from some-sensor
     </main>

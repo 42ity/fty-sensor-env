@@ -53,9 +53,12 @@
 #endif
 
 //  Opaque class structures to allow forward references
+typedef struct _libth_t libth_t;
+#define LIBTH_T_DEFINED
 
 
 //  Public API classes
+#include "libth.h"
 
 #endif
 /*
