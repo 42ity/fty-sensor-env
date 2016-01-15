@@ -1,0 +1,25 @@
+Name(7)
+=======
+
+
+NAME
+----
+agent_th - Grab temperature and humidity data from some-sensor
+
+
+SYNOPSIS
+--------
+----
+#include <agent_th.h>
+
+cc ['flags'] 'files' -lth ['libraries']
+----
+
+
+DESCRIPTION
+-----------
+
+Classes
+~~~~~~~
+
+Something.
