@@ -1,0 +1,3 @@
+# agent-tg
+
+Component sending temperature and humidity data from RackController's sensors
