@@ -1,11 +1,12 @@
 <license>
 Code in this repository is part of Eaton Intelligent Power Controller SW suite
 
-Copyright (C) 2015 Eaton
+Copyright © 2015-2016 Eaton. This software is confidential and licensed under
+Eaton Proprietary License (EPL or EULA).
 
-The software that accompanies this License is the property of Eaton
-and is protected by copyright and other intellectual property law.
+This software is not authorized to be used, duplicated or disclosed to anyone
+without the prior written permission of Eaton.
 
-Final content under discussion...
-Refer to http://pqsoftware.eaton.com/explore/eng/ipp/license_en.htm?lang=en&file=install/win32/ipp/ipp_win_1_42_109.exe&os=WIN&typeOs=
+Limitations, restrictions and exclusions of the Eaton applicable standard terms
+and conditions, such as its EPL and EULA, apply.
 </license>
