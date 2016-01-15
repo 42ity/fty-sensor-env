@@ -49,7 +49,7 @@ This package contains shared library.
 
 %files -n libth0
 %defattr(-,root,root)
-%doc COPYING
+%doc LICENSE
 %{_libdir}/libth.so.*
 
 %package devel
@@ -89,6 +89,7 @@ find %{buildroot} -name '*.la' | xargs rm -f
 
 %files
 %defattr(-,root,root)
+%doc LICENSE
 %{_bindir}/agent-th
 %{_prefix}/lib/systemd/system/agent-th*.service
 
