@@ -14,13 +14,14 @@ pkgconfig_DATA = src/libth.pc
 
 include_HEADERS = \
     include/agent_th.h \
+    include/libth.h \
     include/th_library.h
 
 src_libth_la_SOURCES = \
     src/libth.cc \
     src/platform.h
 
-src_libth_la_CPPFLAGS = ${AM_CPPFLAGS}
+src_libth_la_CPPFLAGS = ${AM_CPPFLAGS} -D__STDC_FORMAT_MACROS
 src_libth_la_CXXFLAGS = ${AM_CXXFLAGS}
 
 src_libth_la_LDFLAGS = \
