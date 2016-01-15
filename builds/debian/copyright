@@ -1,0 +1,30 @@
+This package was debianized by Michal Vyskocil <MichalVyskocil@Eaton.com> on
+Fri, 15 Jan 2016 13:44:35 +0100
+
+Upstream Authors:
+
+  Michal Hrusecky <MichalHrusecky@Eaton.com>
+  Michal Vyskocil <MichalVyskocil@Eaton.com>
+
+Copyright:
+
+  Copyright (C) 2015-2016 Eaton
+
+Licenses:
+
+  Copyright © 2015-2016 Eaton. This software is confidential and licensed under
+  Eaton Proprietary License (EPL or EULA).
+
+  This software is not authorized to be used, duplicated or disclosed to anyone
+  without the prior written permission of Eaton.
+
+  Limitations, restrictions and exclusions of the Eaton applicable standard terms
+  and conditions, such as its EPL and EULA, apply.
+
+  On Debian systems, the full text of the Eaton EULA
+  may be found in /usr/share/common-licenses/Eaton-EULA.
+
+
+The Debian packaging is Copyright (C) 2015-2016 Eaton,
+and is licensed under the Eaton EULA, see
+`/usr/share/common-licenses/Eaton-EULA'.
