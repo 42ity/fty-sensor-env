@@ -1,10 +1,9 @@
-AGENT_TH(1)
-===========
-
+LIBTH(3)
+========
 
 NAME
 ----
-agent_th - Grab temperature and humidity data from some-sensor
+libth - A library to interface with Eaton Temperature and humidity sensor
 
 
 SYNOPSIS
