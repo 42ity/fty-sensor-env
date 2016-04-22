@@ -104,7 +104,7 @@ ymsg_t* get_measurement(char* what) {
     ymsg_t* ret = NULL;
     char *th = strdup(what + (strlen(what) - 3));
     c_item data = { 0, false, 0, 0 }, *data_p = NULL;
-
+    uint64_t TTL = 5*60; // 5 minutes time to live for all measurements
     zsys_debug("Measuring %s", what);
 
     // Get data from cache and maybe update the cache
@@ -157,11 +157,11 @@ ymsg_t* get_measurement(char* what) {
 
     // Formulate a response
     if(what[0] == 't') {
-        ret = bios_measurement_encode("", "", "C", data_p->T, -2, data_p->time);
+        ret = bios_measurement_encode("", "", "C", data_p->T, -2, TTL);
         zsys_debug("Returning T = %" PRId32 ".%02" PRId32 " C",
                   data_p->T/100, data_p->T%100);
     } else {
-        ret = bios_measurement_encode("", "", "%", data_p->H, -2, data_p->time);
+        ret = bios_measurement_encode("", "", "%", data_p->H, -2, TTL);
         zsys_debug("Returning H = %" PRId32 ".%02" PRId32 " %%",
                   data_p->H/100, data_p->H%100);
     }
