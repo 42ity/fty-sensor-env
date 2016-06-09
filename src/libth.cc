@@ -246,3 +246,16 @@ int open_device(const char* dev) {
     return fd;
 }
 
+//  --------------------------------------------------------------------------
+//  Self test of this class
+
+void
+libth_test (bool verbose)
+{
+    printf (" * libth: ");
+    //  @selftest
+    //  @end
+    printf ("Empty test - OK\n");
+}
+
+

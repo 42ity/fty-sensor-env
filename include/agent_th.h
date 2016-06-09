@@ -18,7 +18,7 @@
 #define AGENT_TH_H_INCLUDED
 
 //  Include the project library file
-#include "th_library.h"
+#include "agent_th_library.h"
 
 //  Add your own public definitions here, if you need them
 
