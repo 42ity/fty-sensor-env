@@ -257,6 +257,7 @@ main (int argc, char *argv []) {
 
     int rv = mlm_client_connect (client, endpoint, 1000, id.c_str ());
     if (rv == -1) {
+        mlm_client_destroy (&client);
         log_error (
                 "mlm_client_connect (endpoint = '%s', timeout = '1000', address = '%s') failed",
                 endpoint, id.c_str ());
@@ -266,6 +267,7 @@ main (int argc, char *argv []) {
 
     rv = mlm_client_set_producer (client, BIOS_PROTO_STREAM_METRICS_SENSOR);
     if (rv == -1) {
+        mlm_client_destroy (&client);
         log_error (
                 "mlm_client_set_producer (stream = '%s') failed",
                 BIOS_PROTO_STREAM_METRICS_SENSOR);
