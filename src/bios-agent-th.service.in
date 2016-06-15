@@ -1,7 +1,7 @@
 [Unit]
 Description=Temperature & Humidity
-Requires=malamute.service
 After=malamute.service
+Requires=malamute.service
 PartOf=bios.target
 
 [Service]
@@ -13,7 +13,7 @@ EnvironmentFile=-/usr/share/bios/etc/default/bios
 EnvironmentFile=-/usr/share/bios/etc/default/bios__%n.conf
 EnvironmentFile=-/etc/default/bios
 EnvironmentFile=-/etc/default/bios__%n.conf
-ExecStart=@prefix@/bin/agent-th
+ExecStart=@prefix@/bin/bios-agent-th
 Restart=always
 
 [Install]
