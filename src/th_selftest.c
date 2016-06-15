@@ -21,7 +21,7 @@
     =========================================================================
 */
 
-#include "agent_th_classes.h"
+#include "th_classes.h"
 
 typedef struct {
     const char *testname;
