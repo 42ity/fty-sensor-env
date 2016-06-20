@@ -259,51 +259,50 @@ if test "x$was_malamute_check_lib_detected" = "xno"; then
     LIBS="${malamute_LIBS} ${LIBS}"
 fi
 
+was_biosproto_check_lib_detected=no
 
-was_core_check_lib_detected=no
-
-PKG_CHECK_MODULES([core], [biosapi >= 0.0.0],
+PKG_CHECK_MODULES([biosproto], [libbiosproto >= 0.0.0],
     [
     ],
     [
-        AC_ARG_WITH([biosapi],
+        AC_ARG_WITH([libbiosproto],
             [
-                AS_HELP_STRING([--with-biosapi],
-                [Specify biosapi prefix])
+                AS_HELP_STRING([--with-libbiosproto],
+                [Specify libbiosproto prefix])
             ],
-            [search_biosapi="yes"],
+            [search_libbiosproto="yes"],
             [])
 
-        core_synthetic_cflags=""
-        core_synthetic_libs="-lbiosapi"
+        biosproto_synthetic_cflags=""
+        biosproto_synthetic_libs="-lbiosproto"
 
-        if test "x$search_biosapi" = "xyes"; then
-            if test -r "${with_biosapi}/include/biosapi.h"; then
-                core_synthetic_cflags="-I${with_biosapi}/include"
-                core_synthetic_libs="-L${with_biosapi}/lib -lbiosapi"
+        if test "x$search_libbiosproto" = "xyes"; then
+            if test -r "${with_libbiosproto}/include/biosproto.h"; then
+                biosproto_synthetic_cflags="-I${with_libbiosproto}/include"
+                biosproto_synthetic_libs="-L${with_libbiosproto}/lib -lbiosproto"
             else
-                AC_MSG_ERROR([${with_biosapi}/include/biosapi.h not found. Please check biosapi prefix])
+                AC_MSG_ERROR([${with_libbiosproto}/include/biosproto.h not found. Please check libbiosproto prefix])
             fi
         fi
 
-        AC_CHECK_LIB([biosapi], [ymsg_test],
-            [
-                CFLAGS="${core_synthetic_cflags} ${CFLAGS}"
-                LDFLAGS="${core_synthetic_libs} ${LDFLAGS}"
-                LIBS="${core_synthetic_libs} ${LIBS}"
 
-                AC_SUBST([core_CFLAGS],[${core_synthetic_cflags}])
-                AC_SUBST([core_LIBS],[${core_synthetic_libs}])
-                was_core_check_lib_detected=yes
+        AC_CHECK_LIB([biosproto], [bios_proto_test],
+            [
+                CFLAGS="${biosproto_synthetic_cflags} ${CFLAGS}"
+                LDFLAGS="${biosproto_synthetic_libs} ${LDFLAGS}"
+                LIBS="${biosproto_synthetic_libs} ${LIBS}"
+
+                AC_SUBST([biosproto_CFLAGS],[${biosproto_synthetic_cflags}])
+                AC_SUBST([biosproto_LIBS],[${biosproto_synthetic_libs}])
+                was_biosproto_check_lib_detected=yes
             ],
-            [AC_MSG_ERROR([cannot link with -lbiosapi, install biosapi.])])
+            [AC_MSG_ERROR([cannot link with -lbiosproto, install libbiosproto])])
     ])
 
-if test "x$was_core_check_lib_detected" = "xno"; then
-    CFLAGS="${core_CFLAGS} ${CFLAGS}"
-    LIBS="${core_LIBS} ${LIBS}"
+if test "x$was_biosproto_check_lib_detected" = "xno"; then
+    CFLAGS="${biosproto_CFLAGS} ${CFLAGS}"
+    LIBS="${biosproto_LIBS} ${LIBS}"
 fi
-
 
 CFLAGS="${PREVIOUS_CFLAGS}"
 LIBS="${PREVIOUS_LIBS}"

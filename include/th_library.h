@@ -27,8 +27,7 @@
 //  External dependencies
 #include <czmq.h>
 #include <malamute.h>
-#include <bios/bios_agent.h>
-#include <bios/agents.h>
+#include <biosproto.h>
 
 //  AGENT-TH version macros for compile-time API detection
 

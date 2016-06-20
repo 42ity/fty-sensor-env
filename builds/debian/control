@@ -26,7 +26,7 @@ Build-Depends: bison, debhelper (>= 8),
     libzmq4-dev,
     libczmq-dev,
     libmlm-dev,
-    core-dev,
+    libbiosproto-dev,
     dh-autoreconf,
     systemd
 
@@ -44,7 +44,7 @@ Depends:
     libzmq4-dev,
     libczmq-dev,
     libmlm-dev,
-    libbiosapi-dev,
+    libbiosproto-dev,
     libth0 (= ${binary:Version})
 Description: development files for agent-th
  This package contains development files for agent-th: grab temperature and humidity data from some-sensor

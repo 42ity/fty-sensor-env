@@ -30,7 +30,7 @@ BuildRequires:  libsodium-devel
 BuildRequires:  zeromq-devel
 BuildRequires:  czmq-devel
 BuildRequires:  malamute-devel
-BuildRequires:  core-devel
+BuildRequires:  biosproto-devel
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -60,7 +60,7 @@ Requires:       libsodium-devel
 Requires:       zeromq-devel
 Requires:       czmq-devel
 Requires:       malamute-devel
-Requires:       core-devel
+Requires:       biosproto-devel
 
 %description devel
 agent-th grab temperature and humidity data from some-sensor.
