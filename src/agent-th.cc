@@ -205,8 +205,10 @@ main (int argc, char *argv []) {
     std::map<std::string, std::pair<int32_t, time_t>> cache;
 
     // Form ID from hostname and agent name
-    char hostname[HOST_NAME_MAX];
-    gethostname(hostname, HOST_NAME_MAX);
+    char xhostname[HOST_NAME_MAX];
+    gethostname(xhostname, HOST_NAME_MAX);
+    std::string hostname = xhostname;
+
     std::string id = std::string(agent.agent_name) + "@" + hostname;
 
     // Create client
@@ -226,14 +228,31 @@ main (int argc, char *argv []) {
     }
     zsys_debug ("Connected to %s", endpoint);
 
+    rv = mlm_client_set_consumer (client, BIOS_PROTO_STREAM_ASSETS, ".*");
+    if (rv == -1) {
+        mlm_client_destroy (&client);
+        zsys_error (
+                "mlm_client_set_consumer (stream = '%s', pattern = '%s') failed",
+                BIOS_PROTO_STREAM_ASSETS, ".*");
+        return EXIT_FAILURE;
+    }
+    zsys_debug ("Subscribed to %s", BIOS_PROTO_STREAM_ASSETS);
+
     rv = mlm_client_set_producer (client, BIOS_PROTO_STREAM_METRICS_SENSOR);
     if (rv == -1) {
         mlm_client_destroy (&client);
-        zsys_error (                "mlm_client_set_producer (stream = '%s') failed",
+        zsys_error (
+                "mlm_client_set_producer (stream = '%s') failed",
                 BIOS_PROTO_STREAM_METRICS_SENSOR);
         return EXIT_FAILURE;
     }
     zsys_debug ("Publishing to %s as %s", BIOS_PROTO_STREAM_METRICS_SENSOR, id.c_str());
+
+    zpoller_t *poller = zpoller_new (mlm_client_msgpipe (client), NULL);
+    if (!poller) {
+        zsys_error ("zpoller_new () failed"); 
+        return EXIT_FAILURE;
+    }
 
     while (!zsys_interrupted) {
         // Go through all the stuff we monitor
@@ -256,9 +275,9 @@ main (int argc, char *argv []) {
                 // Prepare topic from templates
                 char* topic = (char*)malloc(strlen(agent.at) +
                                             strlen(agent.measurement) +
-                                            strlen(hostname) +
+                                            hostname.size () +
                                             strlen(*what) + 5);
-                sprintf(topic, agent.at, hostname);
+                sprintf(topic, agent.at, hostname.c_str ());
                 // ymsg_set_string(msg, "device", topic); // WIP
                 bios_proto_set_element_src (msg, "%s", topic);
 
@@ -266,7 +285,7 @@ main (int argc, char *argv []) {
                 // ymsg_set_string(msg, "quantity", topic); // WIP
                 bios_proto_set_type (msg, "%s", topic);
                 strcat(topic, "@");
-                sprintf(topic + strlen(topic), agent.at, hostname);
+                sprintf(topic + strlen(topic), agent.at, hostname.c_str ());
                 zsys_debug("Sending new measurement '%s' with value '%s'", topic, bios_proto_value (msg));
 
                 // Put it in the cache
@@ -293,9 +312,37 @@ main (int argc, char *argv []) {
             what++;
         }
         // Hardcoded monitoring interval
-        zclock_sleep(NUT_POLLING_INTERVAL);
+        zclock_sleep(NUT_POLLING_INTERVAL - 1000);
+        void *which = zpoller_wait (poller, 1000); // timeout in msec 
+        if (which == mlm_client_msgpipe (client)) {
+            zmsg_t *message = mlm_client_recv (client);
+            if (!message)
+                break;
+            bios_proto_t *asset = bios_proto_decode (&message);
+            if (!asset || bios_proto_id (asset) != BIOS_PROTO_ASSET) {
+                bios_proto_destroy (&asset);
+                zsys_warning ("bios_proto_decode () failed OR received message not BIOS_PROTO_ASSET");
+                continue;
+            }
+            const char *operation = bios_proto_operation (asset);
+            const char *type = bios_proto_aux_string (asset, "type", "");
+            const char *subtype = bios_proto_aux_string (asset, "subtype", "");
+            
+            if ((streq (operation, BIOS_PROTO_ASSET_OP_CREATE) || streq (operation, BIOS_PROTO_ASSET_OP_UPDATE)) &&
+                streq (type, "device") &&
+                streq (subtype, "rack controller")) {                
+                hostname = bios_proto_name (asset); 
+            }
+            bios_proto_destroy (&asset);
+        }
+        else if (!zpoller_expired (poller)) {
+            break;
+        }
+        // WIP: Keep until proven to work
+        // zclock_sleep(NUT_POLLING_INTERVAL);
     }
-
+    
+    zpoller_destroy (&poller);
     mlm_client_destroy (&client);
     if (agent.close != NULL && agent.close ())
         return -1;
