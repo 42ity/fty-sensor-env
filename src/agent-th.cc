@@ -209,6 +209,26 @@ main (int argc, char *argv []) {
     gethostname(xhostname, HOST_NAME_MAX);
     std::string hostname = xhostname;
 
+    // Temporary workaround
+    // Try to read from /var/lib/composite-metrics/agent_th
+
+    zfile_t *file = zfile_new (NULL, "/var/lib/composite-metrics/agent_th");
+    if (file && zfile_input (file) == 0) {
+        zsys_debug ("state file for agent_th exists");
+        zchunk_t *chunk = zchunk_slurp ("/var/lib/composite-metrics/agent_th", 0);
+        if (chunk != NULL) {
+            hostname.assign ((char *) chunk);
+            zsys_debug ("state file contains rc3 name '%s'", hostname.c_str ());
+        }
+        else
+            zsys_error ("could not read from /var/lib/composite-metrics/agent_th");
+        zchunk_destroy (&chunk);
+        zfile_close (file);
+    }
+    else
+        zsys_error ("could not read from /var/lib/composite-metrics/agent_th");
+    zfile_destroy (&file);
+
     std::string id = std::string(agent.agent_name) + "@" + hostname;
 
     // Create client
@@ -342,6 +362,23 @@ main (int argc, char *argv []) {
         // zclock_sleep(NUT_POLLING_INTERVAL);
     }
     
+    // Temporary workaround
+    // Try to write to /var/lib/composite-metrics/agent_th
+    file = zfile_new (NULL, "/var/lib/composite-metrics/agent_th");
+    if (file && zfile_output (file) == 0) {
+        zfile_remove (file);
+        zchunk_t *chunk = zchunk_new ((const void *) hostname.c_str (), hostname.size ());
+        rv = zfile_write (file, chunk, (off_t) 0);
+        if (rv != 0)
+            zsys_error ("could not write to /var/lib/composite-metrics/agent_th");
+        zchunk_destroy (&chunk);
+        zfile_close (file);
+    }
+    else {
+        zsys_error ("could not write to /var/lib/composite-metrics/agent_th");
+    }
+    zfile_destroy (&file);
+
     zpoller_destroy (&poller);
     mlm_client_destroy (&client);
     if (agent.close != NULL && agent.close ())
