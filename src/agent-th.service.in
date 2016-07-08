@@ -7,7 +7,7 @@ PartOf=bios.target
 [Service]
 Type=simple
 # Note: This service requires access to serial ports, etc.
-User=nobody
+User=bios
 Group=dialout
 EnvironmentFile=-/usr/share/bios/etc/default/bios
 EnvironmentFile=-/usr/share/bios/etc/default/bios__%n.conf
