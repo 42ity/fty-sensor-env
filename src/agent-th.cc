@@ -26,14 +26,10 @@ and conditions, such as its EPL and EULA, apply.
 #include <string>
 #include <cmath>
 
-// TODO: Make the following 5 values configurable
 #define NUT_MEASUREMENT_REPEAT_AFTER    300     //!< (once in 5 minutes now (300s))
-#define NUT_INVENTORY_REPEAT_AFTER      3600    //!< (every hour now (3600s))
 #define NUT_POLLING_INTERVAL            5000    //!< (check with upsd ever 5s)
 
-// Note !!! If you change this value you have to change the following tests as well: TODO
-#define AGENT_NUT_REPEAT_INTERVAL_SEC       NUT_MEASUREMENT_REPEAT_AFTER     //<! TODO 
-#define AGENT_NUT_SAMPLING_INTERVAL_SEC     5   //!< TODO: We might not need this anymore
+#define AGENT_NUT_REPEAT_INTERVAL_SEC       NUT_MEASUREMENT_REPEAT_AFTER
 
 // ### logging
 bool agent_th_verbose = false;
@@ -93,17 +89,21 @@ struct c_item {
 
 bios_proto_t*
 get_measurement (char* what) {
-    static std::map<std::string, c_item> cache;
+
+    // static std::map<std::string, c_item> cache; // WIP
+    
     bios_proto_t* ret = NULL;
     char *th = strdup(what + (strlen(what) - 3));
-    c_item data = { 0, false, 0, 0 }, *data_p = NULL;
-    uint64_t TTL = 5*60; // 5 minutes time to live for all measurements
+    c_item data = { 0, false, 0, 0 }, *data_p = NULL;    
+    uint64_t TTL = 5*60; // 5 minutes time to live for all measurements // TODO: We need to update this
     zsys_debug ("Measuring '%s'", what);
 
     // Get data from cache and maybe update the cache
-    auto it = cache.find(th);
-    if((it == cache.end()) || (time(NULL) - it->second.time) > (NUT_POLLING_INTERVAL/1000)) {
-        zsys_debug ("No usable value in cache");
+    
+    // auto it = cache.find(th); // WIP
+
+    // if((it == cache.end()) || (time(NULL) - it->second.time) > (NUT_POLLING_INTERVAL/1000)) { // WIP
+    //    zsys_debug ("No usable value in cache"); // WIP
         std::string path = "/dev/ttyS";
 	    switch (th[2]) {
            case '1': path +=  "9"; break;
@@ -134,6 +134,7 @@ get_measurement (char* what) {
             data.broken = false;
         }
 
+        /* WIP
         if (it != cache.end ()) {
             zsys_debug("Updating data in cache");
             it->second = data;
@@ -142,11 +143,13 @@ get_measurement (char* what) {
             zsys_debug("Putting data into cache");
             cache.insert(std::make_pair(th, data));
         }
-    }
-    else {
+        */
+
+    // }
+/*    else {
         zsys_debug("Got usable data from cache");
         data_p = &(it->second);
-    }
+    }*/
 
     free(th);
     if ((data_p == NULL) || data_p->broken)
@@ -205,7 +208,7 @@ main (int argc, char *argv []) {
     if (bios_log_level && streq (bios_log_level, "LOG_DEBUG"))
         agent_th_verbose = true;
 
-    std::map<std::string, std::pair<int32_t, time_t>> cache;
+    // std::map<std::string, std::pair<int32_t, time_t>> cache; // WIP
 
     // Form ID from hostname and agent name
     char xhostname[HOST_NAME_MAX];
@@ -280,19 +283,25 @@ main (int argc, char *argv []) {
         // Go through all the stuff we monitor
         char **what = agent.variants;
         while(what != NULL && *what != NULL && !zsys_interrupted) {
+
             // Get measurement
             bios_proto_t* msg = agent.get_measurement(*what);
-            if(msg == NULL) {
+
+            if (msg == NULL) {
                 zclock_sleep (100);
                 what++;
                 continue;
             }
+
             // Check cache to see if updated value needs to be send
-            auto cit = cache.find(*what);
+            // auto cit = cache.find(*what); // WIP
+           
+            /* WIP 
             int32_t int32 = (int32_t) std::trunc (std::stof (bios_proto_value (msg)));
-            if((cit == cache.end()) ||
-               (abs(cit->second.first - int32 > agent.diff) ||
-               (time(NULL) - cit->second.second > AGENT_NUT_REPEAT_INTERVAL_SEC))) {
+            if ((cit == cache.end()) ||
+                (abs(cit->second.first - int32 > agent.diff) ||
+                (time(NULL) - cit->second.second > AGENT_NUT_REPEAT_INTERVAL_SEC))) {
+                */
 
                 // Prepare topic from templates
                 char* topic = (char*)malloc(strlen(agent.at) +
@@ -310,6 +319,7 @@ main (int argc, char *argv []) {
                 sprintf(topic + strlen(topic), agent.at, hostname.c_str ());
                 zsys_debug("Sending new measurement '%s' with value '%s'", topic, bios_proto_value (msg));
 
+                /* WIP
                 // Put it in the cache
                 if (cit == cache.end ()) {
                     cache.insert(std::make_pair(*what,
@@ -319,6 +329,7 @@ main (int argc, char *argv []) {
                     cit->second.first = int32;
                     cit->second.second = time(NULL);
                 }
+                */
 
                 // Send it
                 zmsg_t *to_send = bios_proto_encode (&msg);  
@@ -327,10 +338,16 @@ main (int argc, char *argv []) {
                     zsys_error ("mlm_client_send (subject = '%s')", topic);
                 }
                 zclock_sleep (100);
+
+                /* WIP
             }
             else {
+            */
+
                 bios_proto_destroy (&msg);
-            }
+
+            // } // WIP
+            
             what++;
         }
         // Hardcoded monitoring interval
