@@ -284,12 +284,18 @@ main (int argc, char *argv []) {
         char **what = agent.variants;
         while(what != NULL && *what != NULL && !zsys_interrupted) {
 
-            // Get measurement
             bios_proto_t* msg = agent.get_measurement(*what);
+            if (zsys_interrupted) {
+                bios_proto_destroy (&msg);
+                break;
+            }
 
             if (msg == NULL) {
                 zclock_sleep (100);
                 what++;
+                if (zsys_interrupted) {
+                    break;
+                } 
                 continue;
             }
 
@@ -337,7 +343,6 @@ main (int argc, char *argv []) {
                 if (rv != 0) {
                     zsys_error ("mlm_client_send (subject = '%s')", topic);
                 }
-                zclock_sleep (100);
 
                 /* WIP
             }
