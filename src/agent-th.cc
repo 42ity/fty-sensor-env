@@ -167,12 +167,11 @@ get_measurement (char* what) {
         //  TTL);           // time
         
         ret = bios_proto_new (BIOS_PROTO_METRIC);
-        bios_proto_set_value (ret, "%s", std::to_string (data_p->T/100).c_str ());
+        bios_proto_set_value (ret, "%.2f", data_p->T / (float) 100);
         bios_proto_set_unit (ret, "%s", "C");
         bios_proto_set_ttl (ret, TTL);
 
-        zsys_debug("Returning T = %" PRId32 ".%02" PRId32 " C",
-                  data_p->T/100, data_p->T%100);
+        zsys_debug ("Returning T = %s C", bios_proto_value (ret));
     }
     else {
         // WIP: keep until tested
@@ -185,12 +184,11 @@ get_measurement (char* what) {
         // TTL);        // time
 
         ret = bios_proto_new (BIOS_PROTO_METRIC);
-        bios_proto_set_value (ret, "%s", std::to_string (data_p->H/100).c_str ());
+        bios_proto_set_value (ret, "%.2f", data_p->H / (float) 100);
         bios_proto_set_unit (ret, "%s", "%");
         bios_proto_set_ttl (ret, TTL);
 
-        zsys_debug("Returning H = %" PRId32 ".%02" PRId32 " %%",
-                  data_p->H/100, data_p->H%100);
+        zsys_debug("Returning H = %s %%", bios_proto_value (ret));
     }
     return ret;
 }
