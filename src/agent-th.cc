@@ -58,8 +58,6 @@ char *vars[] = {
 
 struct sample_agent {
     const char* agent_name;   //!< Name of the measuring agent
-    int (*init)();            //!< Constructor 
-    int (*close)();           //!< Destructor
     char **variants;          //!< Various sources to iterate over
     const char* measurement;  /*!< Printf formated string for what are we
                                    measuring, %s will be filled with source */
@@ -71,8 +69,6 @@ struct sample_agent {
 
 sample_agent agent = {
     "agent-th",
-    NULL,
-    NULL,
     vars,
     "%s",
     "%s",
@@ -152,9 +148,6 @@ get_measurement (char* what) {
 
 int
 main (int argc, char *argv []) {
-
-    if (agent.init != NULL && agent.init ())
-        return -1;
 
     const char *endpoint = "ipc://@/malamute";
     const char *addr = (argc == 1) ? "ipc://@/malamute" : argv[1];
@@ -330,7 +323,5 @@ main (int argc, char *argv []) {
 
     zpoller_destroy (&poller);
     mlm_client_destroy (&client);
-    if (agent.close != NULL && agent.close ())
-        return -1;
     return 0;
 }
