@@ -224,11 +224,12 @@ main (int argc, char *argv []) {
     while (!zsys_interrupted) {
         // Go through all the stuff we monitor
         char **what = agent.variants;
-        while(what != NULL && *what != NULL && !zsys_interrupted) {
+        while (what != NULL && *what != NULL && !zsys_interrupted) {
 
             bios_proto_t* msg = agent.get_measurement(*what);
             if (zsys_interrupted) {
                 bios_proto_destroy (&msg);
+                zsys_warning ("interrupted ... ");
                 break;
             }
 
@@ -236,6 +237,7 @@ main (int argc, char *argv []) {
                 zclock_sleep (100);
                 what++;
                 if (zsys_interrupted) {
+                    zsys_warning ("interrupted ... ");
                     break;
                 } 
                 continue;
@@ -264,8 +266,6 @@ main (int argc, char *argv []) {
             }
 
             bios_proto_destroy (&msg);
-
-            
             what++;
         }
         // Hardcoded monitoring interval
