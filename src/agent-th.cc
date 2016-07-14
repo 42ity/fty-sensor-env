@@ -26,10 +26,8 @@ and conditions, such as its EPL and EULA, apply.
 #include <string>
 #include <cmath>
 
-#define NUT_MEASUREMENT_REPEAT_AFTER    300     //!< (once in 5 minutes now (300s))
-#define NUT_POLLING_INTERVAL            5000    //!< (check with upsd ever 5s)
-
-#define AGENT_NUT_REPEAT_INTERVAL_SEC       NUT_MEASUREMENT_REPEAT_AFTER
+#define POLLING_INTERVAL            5000
+#define TIME_TO_LIVE                300
 
 // ### logging
 bool agent_th_verbose = false;
@@ -58,8 +56,6 @@ char *vars[] = {
 
 struct sample_agent {
     const char* agent_name;   //!< Name of the measuring agent
-    int (*init)();            //!< Constructor 
-    int (*close)();           //!< Destructor
     char **variants;          //!< Various sources to iterate over
     const char* measurement;  /*!< Printf formated string for what are we
                                    measuring, %s will be filled with source */
@@ -71,8 +67,6 @@ struct sample_agent {
 
 sample_agent agent = {
     "agent-th",
-    NULL,
-    NULL,
     vars,
     "%s",
     "%s",
@@ -90,66 +84,40 @@ struct c_item {
 bios_proto_t*
 get_measurement (char* what) {
 
-    // static std::map<std::string, c_item> cache; // WIP
-    
     bios_proto_t* ret = NULL;
     char *th = strdup(what + (strlen(what) - 3));
     c_item data = { 0, false, 0, 0 }, *data_p = NULL;    
-    uint64_t TTL = 5*60; // 5 minutes time to live for all measurements // TODO: We need to update this
     zsys_debug ("Measuring '%s'", what);
 
-    // Get data from cache and maybe update the cache
-    
-    // auto it = cache.find(th); // WIP
-
-    // if((it == cache.end()) || (time(NULL) - it->second.time) > (NUT_POLLING_INTERVAL/1000)) { // WIP
-    //    zsys_debug ("No usable value in cache"); // WIP
-        std::string path = "/dev/ttyS";
-	    switch (th[2]) {
-           case '1': path +=  "9"; break;
-           case '2': path += "10"; break;
-           case '3': path += "11"; break;
-           case '4': path += "12"; break;
-        }
-        zsys_debug ("Reading from '%s'", path.c_str());
-        data.time = time(NULL);
-        int fd = open_device(path.c_str());
-        if(!device_connected(fd)) {
-            if(fd > 0)
-                close(fd);
-            zsys_debug("No sensor attached to %s", path.c_str());
-            data.broken = true;
-        }
-        else {
-            reset_device(fd);
-            data.T = get_th_data(fd, MEASURE_TEMP);
-            data.H = get_th_data(fd, MEASURE_HUMI);
-            compensate_temp(data.T, &data.T);
-            compensate_humidity(data.H, data.T, &data.H);
+    std::string path = "/dev/ttyS";
+    switch (th[2]) {
+       case '1': path +=  "9"; break;
+       case '2': path += "10"; break;
+       case '3': path += "11"; break;
+       case '4': path += "12"; break;
+    }
+    zsys_debug ("Reading from '%s'", path.c_str());
+    data.time = time(NULL);
+    int fd = open_device(path.c_str());
+    if(!device_connected(fd)) {
+        if(fd > 0)
             close(fd);
-            zsys_debug("Got data from sensor '%s' - T = %" PRId32 ".%02" PRId32 " C,"
-                                                "H = %" PRId32 ".%02" PRId32 " %%",
-                      th, data.T/100, data.T%100, data.H/100, data.H%100);
-            data_p = &data;
-            data.broken = false;
-        }
-
-        /* WIP
-        if (it != cache.end ()) {
-            zsys_debug("Updating data in cache");
-            it->second = data;
-        }
-        else {
-            zsys_debug("Putting data into cache");
-            cache.insert(std::make_pair(th, data));
-        }
-        */
-
-    // }
-/*    else {
-        zsys_debug("Got usable data from cache");
-        data_p = &(it->second);
-    }*/
+        zsys_debug("No sensor attached to %s", path.c_str());
+        data.broken = true;
+    }
+    else {
+        reset_device(fd);
+        data.T = get_th_data(fd, MEASURE_TEMP);
+        data.H = get_th_data(fd, MEASURE_HUMI);
+        compensate_temp(data.T, &data.T);
+        compensate_humidity(data.H, data.T, &data.H);
+        close(fd);
+        zsys_debug("Got data from sensor '%s' - T = %" PRId32 ".%02" PRId32 " C,"
+                                            "H = %" PRId32 ".%02" PRId32 " %%",
+                  th, data.T/100, data.T%100, data.H/100, data.H%100);
+        data_p = &data;
+        data.broken = false;
+    }
 
     free(th);
     if ((data_p == NULL) || data_p->broken)
@@ -157,49 +125,26 @@ get_measurement (char* what) {
 
     // Formulate a response
     if (what[0] == 't') {
-        // WIP: keep until tested 
-        // ret = bios_measurement_encode(
-        // "",              // device name
-        // "",              // quantity
-        // "C",             // units
-        //  data_p->T,      // value
-        //  -2,             // scale
-        //  TTL);           // time
-        
         ret = bios_proto_new (BIOS_PROTO_METRIC);
-        bios_proto_set_value (ret, "%s", std::to_string (data_p->T/100).c_str ());
+        bios_proto_set_value (ret, "%.2f", data_p->T / (float) 100);
         bios_proto_set_unit (ret, "%s", "C");
-        bios_proto_set_ttl (ret, TTL);
+        bios_proto_set_ttl (ret, TIME_TO_LIVE);
 
-        zsys_debug("Returning T = %" PRId32 ".%02" PRId32 " C",
-                  data_p->T/100, data_p->T%100);
+        zsys_debug ("Returning T = %s C", bios_proto_value (ret));
     }
     else {
-        // WIP: keep until tested
-        // ret = bios_measurement_encode(
-        // "",          // device name
-        // "",          // quantity
-        // "%",         // units
-        // data_p->H,   // value
-        // -2,          // scale
-        // TTL);        // time
-
         ret = bios_proto_new (BIOS_PROTO_METRIC);
-        bios_proto_set_value (ret, "%s", std::to_string (data_p->H/100).c_str ());
+        bios_proto_set_value (ret, "%.2f", data_p->H / (float) 100);
         bios_proto_set_unit (ret, "%s", "%");
-        bios_proto_set_ttl (ret, TTL);
+        bios_proto_set_ttl (ret, TIME_TO_LIVE);
 
-        zsys_debug("Returning H = %" PRId32 ".%02" PRId32 " %%",
-                  data_p->H/100, data_p->H%100);
+        zsys_debug("Returning H = %s %%", bios_proto_value (ret));
     }
     return ret;
 }
 
 int
 main (int argc, char *argv []) {
-
-    if (agent.init != NULL && agent.init ())
-        return -1;
 
     const char *endpoint = "ipc://@/malamute";
     const char *addr = (argc == 1) ? "ipc://@/malamute" : argv[1];
@@ -208,8 +153,6 @@ main (int argc, char *argv []) {
     if (bios_log_level && streq (bios_log_level, "LOG_DEBUG"))
         agent_th_verbose = true;
 
-    // std::map<std::string, std::pair<int32_t, time_t>> cache; // WIP
-
     // Form ID from hostname and agent name
     char xhostname[HOST_NAME_MAX];
     gethostname(xhostname, HOST_NAME_MAX);
@@ -217,7 +160,6 @@ main (int argc, char *argv []) {
 
     // Temporary workaround
     // Try to read from /var/lib/bios/composite-metrics/agent_th
-
     zfile_t *file = zfile_new (NULL, HOSTNAME_FILE);
     if (file && zfile_input (file) == 0) {
         zsys_debug ("state file for agent_th exists");
@@ -282,76 +224,52 @@ main (int argc, char *argv []) {
     while (!zsys_interrupted) {
         // Go through all the stuff we monitor
         char **what = agent.variants;
-        while(what != NULL && *what != NULL && !zsys_interrupted) {
+        while (what != NULL && *what != NULL && !zsys_interrupted) {
 
-            // Get measurement
             bios_proto_t* msg = agent.get_measurement(*what);
+            if (zsys_interrupted) {
+                bios_proto_destroy (&msg);
+                zsys_warning ("interrupted ... ");
+                break;
+            }
 
             if (msg == NULL) {
                 zclock_sleep (100);
                 what++;
+                if (zsys_interrupted) {
+                    zsys_warning ("interrupted ... ");
+                    break;
+                } 
                 continue;
             }
 
-            // Check cache to see if updated value needs to be send
-            // auto cit = cache.find(*what); // WIP
-           
-            /* WIP 
-            int32_t int32 = (int32_t) std::trunc (std::stof (bios_proto_value (msg)));
-            if ((cit == cache.end()) ||
-                (abs(cit->second.first - int32 > agent.diff) ||
-                (time(NULL) - cit->second.second > AGENT_NUT_REPEAT_INTERVAL_SEC))) {
-                */
+            // Prepare topic from templates
+            char* topic = (char*)malloc(strlen(agent.at) +
+                                        strlen(agent.measurement) +
+                                        hostname.size () +
+                                        strlen(*what) + 5);
+            sprintf(topic, agent.at, hostname.c_str ());
+            bios_proto_set_element_src (msg, "%s", topic);
 
-                // Prepare topic from templates
-                char* topic = (char*)malloc(strlen(agent.at) +
-                                            strlen(agent.measurement) +
-                                            hostname.size () +
-                                            strlen(*what) + 5);
-                sprintf(topic, agent.at, hostname.c_str ());
-                // ymsg_set_string(msg, "device", topic); // WIP
-                bios_proto_set_element_src (msg, "%s", topic);
+            sprintf(topic, agent.measurement, *what);
+            bios_proto_set_type (msg, "%s", topic);
+            strcat(topic, "@");
+            sprintf(topic + strlen(topic), agent.at, hostname.c_str ());
+            zsys_debug("Sending new measurement '%s' with value '%s'", topic, bios_proto_value (msg));
 
-                sprintf(topic, agent.measurement, *what);
-                // ymsg_set_string(msg, "quantity", topic); // WIP
-                bios_proto_set_type (msg, "%s", topic);
-                strcat(topic, "@");
-                sprintf(topic + strlen(topic), agent.at, hostname.c_str ());
-                zsys_debug("Sending new measurement '%s' with value '%s'", topic, bios_proto_value (msg));
 
-                /* WIP
-                // Put it in the cache
-                if (cit == cache.end ()) {
-                    cache.insert(std::make_pair(*what,
-                        std::make_pair (int32, time (NULL))));
-                }
-                else {
-                    cit->second.first = int32;
-                    cit->second.second = time(NULL);
-                }
-                */
-
-                // Send it
-                zmsg_t *to_send = bios_proto_encode (&msg);  
-                rv = mlm_client_send (client, topic, &to_send);
-                if (rv != 0) {
-                    zsys_error ("mlm_client_send (subject = '%s')", topic);
-                }
-                zclock_sleep (100);
-
-                /* WIP
+            // Send it
+            zmsg_t *to_send = bios_proto_encode (&msg);  
+            rv = mlm_client_send (client, topic, &to_send);
+            if (rv != 0) {
+                zsys_error ("mlm_client_send (subject = '%s')", topic);
             }
-            else {
-            */
 
-                bios_proto_destroy (&msg);
-
-            // } // WIP
-            
+            bios_proto_destroy (&msg);
             what++;
         }
         // Hardcoded monitoring interval
-        zclock_sleep(NUT_POLLING_INTERVAL - 1000);
+        zclock_sleep(POLLING_INTERVAL - 1000);
         void *which = zpoller_wait (poller, 1000); // timeout in msec 
         if (which == mlm_client_msgpipe (client)) {
             zmsg_t *message = mlm_client_recv (client);
@@ -377,8 +295,6 @@ main (int argc, char *argv []) {
         else if (!zpoller_expired (poller)) {
             break;
         }
-        // WIP: Keep until proven to work
-        // zclock_sleep(NUT_POLLING_INTERVAL);
     }
     
     // Temporary workaround
@@ -404,7 +320,5 @@ main (int argc, char *argv []) {
 
     zpoller_destroy (&poller);
     mlm_client_destroy (&client);
-    if (agent.close != NULL && agent.close ())
-        return -1;
     return 0;
 }
