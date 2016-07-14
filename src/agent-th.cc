@@ -26,10 +26,8 @@ and conditions, such as its EPL and EULA, apply.
 #include <string>
 #include <cmath>
 
-#define NUT_MEASUREMENT_REPEAT_AFTER    300     //!< (once in 5 minutes now (300s))
-#define NUT_POLLING_INTERVAL            5000    //!< (check with upsd ever 5s)
-
-#define AGENT_NUT_REPEAT_INTERVAL_SEC       NUT_MEASUREMENT_REPEAT_AFTER
+#define POLLING_INTERVAL            5000
+#define TIME_TO_LIVE                300
 
 // ### logging
 bool agent_th_verbose = false;
@@ -89,7 +87,6 @@ get_measurement (char* what) {
     bios_proto_t* ret = NULL;
     char *th = strdup(what + (strlen(what) - 3));
     c_item data = { 0, false, 0, 0 }, *data_p = NULL;    
-    uint64_t TTL = 5*60; // 5 minutes time to live for all measurements // TODO: We need to update this
     zsys_debug ("Measuring '%s'", what);
 
     std::string path = "/dev/ttyS";
@@ -131,7 +128,7 @@ get_measurement (char* what) {
         ret = bios_proto_new (BIOS_PROTO_METRIC);
         bios_proto_set_value (ret, "%.2f", data_p->T / (float) 100);
         bios_proto_set_unit (ret, "%s", "C");
-        bios_proto_set_ttl (ret, TTL);
+        bios_proto_set_ttl (ret, TIME_TO_LIVE);
 
         zsys_debug ("Returning T = %s C", bios_proto_value (ret));
     }
@@ -139,7 +136,7 @@ get_measurement (char* what) {
         ret = bios_proto_new (BIOS_PROTO_METRIC);
         bios_proto_set_value (ret, "%.2f", data_p->H / (float) 100);
         bios_proto_set_unit (ret, "%s", "%");
-        bios_proto_set_ttl (ret, TTL);
+        bios_proto_set_ttl (ret, TIME_TO_LIVE);
 
         zsys_debug("Returning H = %s %%", bios_proto_value (ret));
     }
@@ -272,7 +269,7 @@ main (int argc, char *argv []) {
             what++;
         }
         // Hardcoded monitoring interval
-        zclock_sleep(NUT_POLLING_INTERVAL - 1000);
+        zclock_sleep(POLLING_INTERVAL - 1000);
         void *which = zpoller_wait (poller, 1000); // timeout in msec 
         if (which == mlm_client_msgpipe (client)) {
             zmsg_t *message = mlm_client_recv (client);
