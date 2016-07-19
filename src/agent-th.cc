@@ -292,18 +292,15 @@ main (int argc, char *argv []) {
         }
 
         if (have_rc3name == false) {
+            zsys_info ("waiting");
             zclock_sleep(POLLING_INTERVAL - 1000); // monitoring interval
 
             if (zsys_interrupted) {
                 zsys_warning ("interrupted ... ");
                 break;
             }
-
+            zsys_info ("polling");
             void *which = zpoller_wait (poller, 1000); // timeout in msec
-            if (which == NULL && zpoller_expired (poller)) {
-                zsys_debug ("poller expired");
-                continue;
-            }
 
             if (which == NULL && zsys_interrupted) {
                 zsys_warning ("interrupted ... ");
@@ -317,6 +314,7 @@ main (int argc, char *argv []) {
                 continue;
             }
             if (which == mlm_client_msgpipe (client)) {
+                zsys_info ("which == mlm_client_msgpipe");
                 zmsg_t *message = mlm_client_recv (client);
                 if (!message) {
                     zsys_warning ("message == NULL");
