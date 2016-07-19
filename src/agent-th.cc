@@ -183,6 +183,13 @@ main (int argc, char *argv []) {
 
     // Create client
     mlm_client_t *client = mlm_client_new ();
+    if (getenv ("BIOS_LOG_LEVEL")
+    &&  streq (getenv ("BIOS_LOG_LEVEL"), "LOG_DEBUG"))
+    {
+        zsys_debug ("mlm_client_set_verbose");
+        mlm_client_set_verbose (client, true);
+    }
+
     if (!client) {
         zsys_error ("mlm_client_new () failed");
         return EXIT_FAILURE;
