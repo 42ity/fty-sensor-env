@@ -292,29 +292,32 @@ main (int argc, char *argv []) {
         }
 
         if (have_rc3name == false) {
-            zsys_info ("waiting");
+            zsys_debug ("waiting for asset message");
             zclock_sleep(POLLING_INTERVAL - 1000); // monitoring interval
 
             if (zsys_interrupted) {
                 zsys_warning ("interrupted ... ");
                 break;
             }
-            zsys_info ("polling");
+            zsys_debug ("polling");
             void *which = zpoller_wait (poller, 1000); // timeout in msec
 
-            if (which == NULL && zsys_interrupted) {
-                zsys_warning ("interrupted ... ");
-                break;
+            if (which == NULL) {
+                zsys_debug ("which == NULL");
+                if (zsys_interrupted) {
+                    zsys_warning ("interrupted ... ");
+                    break;
+                }
+                if (zpoller_expired (poller)) {
+                    zsys_warning ("expired ... ");
+                    continue;
+                }
             }
+            
+            assert (which == mlm_client_msgpipe (client));
 
-            if (which != mlm_client_msgpipe (client)) {
-                zsys_error ("ERROR! ERROR! ERROR! which was supposed to be == mlm_client_msgpipe (client)");
-                zsys_error ("ERROR! ERROR! ERROR! which was supposed to be == mlm_client_msgpipe (client)");
-                zsys_error ("ERROR! ERROR! ERROR! which was supposed to be == mlm_client_msgpipe (client)");
-                continue;
-            }
             if (which == mlm_client_msgpipe (client)) {
-                zsys_info ("which == mlm_client_msgpipe");
+                zsys_debug ("which == mlm_client_msgpipe");
                 zmsg_t *message = mlm_client_recv (client);
                 if (!message) {
                     zsys_warning ("message == NULL");
