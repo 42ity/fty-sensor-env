@@ -223,6 +223,7 @@ main (int argc, char *argv []) {
     if (have_rc3name == false) {
         poller = zpoller_new (mlm_client_msgpipe (client), NULL);
         if (!poller) {
+            mlm_client_destroy (&client);
             zsys_error ("zpoller_new () failed"); 
             return EXIT_FAILURE;
         }
