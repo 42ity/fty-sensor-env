@@ -293,7 +293,7 @@ main (int argc, char *argv []) {
             }
 
             void *which = zpoller_wait (poller, 1000); // timeout in msec
-            if (which == NULL && !zpoller_expired (poller)) {
+            if (which == NULL && zpoller_expired (poller)) {
                 zsys_debug ("poller expired");
                 continue;
             }
@@ -303,10 +303,18 @@ main (int argc, char *argv []) {
                 break;
             }
 
+            if (which != mlm_client_msgpipe (client)) {
+                zsys_error ("ERROR! ERROR! ERROR! which was supposed to be == mlm_client_msgpipe (client)");
+                zsys_error ("ERROR! ERROR! ERROR! which was supposed to be == mlm_client_msgpipe (client)");
+                zsys_error ("ERROR! ERROR! ERROR! which was supposed to be == mlm_client_msgpipe (client)");
+                continue;
+            }
             if (which == mlm_client_msgpipe (client)) {
                 zmsg_t *message = mlm_client_recv (client);
-                if (!message)
+                if (!message) {
+                    zsys_warning ("message == NULL");
                     break;
+                }
                 bios_proto_t *asset = bios_proto_decode (&message);
                 if (!asset || bios_proto_id (asset) != BIOS_PROTO_ASSET) {
                     bios_proto_destroy (&asset);
