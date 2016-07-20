@@ -160,9 +160,13 @@ main (int argc, char *argv []) {
 
     bool have_rc3name = false;
 
+    // Phase 1 - Get rack controller asset name
+    zsys_info ("Phase 1 - Get rack controller asset name");
+
     // Temporary workaround
     // Try to read from /var/lib/bios/composite-metrics/agent_th
     zsys_info ("Trying to read from '%s' if it exists", HOSTNAME_FILE);
+
     zfile_t *file = zfile_new (NULL, HOSTNAME_FILE);
     if (file && zfile_input (file) == 0) {
         zsys_info ("state file '%s' for agent_th exists", HOSTNAME_FILE);
@@ -179,21 +183,122 @@ main (int argc, char *argv []) {
     }
     zfile_destroy (&file);
 
-    std::string id = std::string(agent.agent_name) + "@" + hostname;
 
-    // Create client
-    mlm_client_t *client = mlm_client_new ();
-    if (getenv ("BIOS_LOG_LEVEL")
-    &&  streq (getenv ("BIOS_LOG_LEVEL"), "LOG_DEBUG"))
-    {
-        zsys_debug ("mlm_client_set_verbose");
-        mlm_client_set_verbose (client, true);
+    if (have_rc3name == false) {
+        zsys_info ("Rack controller asset name not read from file -> listening to ASSETS stream for it");
+
+        mlm_client_t *listener = mlm_client_new ();
+        if (!listener) {
+            zsys_error ("mlm_client_new () failed");
+            return EXIT_FAILURE;
+        }
+        if (getenv ("BIOS_LOG_LEVEL") && streq (getenv ("BIOS_LOG_LEVEL"), "LOG_DEBUG")) {
+            zsys_debug ("mlm_client_set_verbose");
+            mlm_client_set_verbose (listener, true);
+        }
+
+        std::string id = std::string(agent.agent_name) + "@" + hostname;
+
+        int rv = mlm_client_connect (listener, addr, 1000, id.c_str ());
+        if (rv == -1) {
+            mlm_client_destroy (&listener);
+            zsys_error (
+                    "mlm_client_connect (endpoint = '%s', timeout = '1000', address = '%s') failed",
+                    addr, id.c_str ());
+            return EXIT_FAILURE; 
+        }
+        zsys_info ("Connected to '%s'", endpoint);
+
+        rv = mlm_client_set_consumer (listener, BIOS_PROTO_STREAM_ASSETS, ".*");
+        if (rv == -1) {
+            mlm_client_destroy (&listener);
+            zsys_error (
+                    "mlm_client_set_consumer (stream = '%s', pattern = '%s') failed",
+                    BIOS_PROTO_STREAM_ASSETS, ".*");
+            return EXIT_FAILURE;
+        }
+        zsys_info ("Subscribed to '%s'", BIOS_PROTO_STREAM_ASSETS);
+
+        zpoller_t *poller = zpoller_new (mlm_client_msgpipe (listener), NULL);
+        if (!poller) {
+            mlm_client_destroy (&listener);
+            zsys_error ("zpoller_new () failed"); 
+            return EXIT_FAILURE;
+        }
+    
+        while (!zsys_interrupted && have_rc3name == false) {
+
+            void *which = zpoller_wait (poller, 5000); // timeout in msec
+
+            if (which == NULL) {
+                zsys_debug ("which == NULL");
+                if (zsys_interrupted) {
+                    zsys_warning ("interrupted ... ");
+                    break;
+                }
+                if (zpoller_expired (poller)) {
+                    zsys_warning ("poller expired ... ");
+                    continue;
+                }
+            }
+            
+            assert (which == mlm_client_msgpipe (listener));
+            zsys_debug ("which == mlm_client_msgpipe");
+
+            zmsg_t *message = mlm_client_recv (listener);
+            if (!message) {
+                zsys_warning ("message == NULL");
+                break;
+            }
+
+            bios_proto_t *asset = bios_proto_decode (&message);
+            if (!asset || bios_proto_id (asset) != BIOS_PROTO_ASSET) {
+                bios_proto_destroy (&asset);
+                zsys_warning ("bios_proto_decode () failed OR received message not BIOS_PROTO_ASSET");
+                continue;
+            }
+            zsys_info ("Received asset message");
+            const char *operation = bios_proto_operation (asset);
+            const char *type = bios_proto_aux_string (asset, "type", "");
+            const char *subtype = bios_proto_aux_string (asset, "subtype", "");
+            
+            if ((streq (operation, BIOS_PROTO_ASSET_OP_CREATE) || streq (operation, BIOS_PROTO_ASSET_OP_UPDATE)) &&
+                streq (type, "device") &&
+                streq (subtype, "rack controller"))
+            { 
+                hostname = bios_proto_name (asset); 
+                have_rc3name = true;
+                zsys_info ("Received rc3 name '%s'", hostname.c_str ());
+            }
+            bios_proto_destroy (&asset);
+        }
+
+        zpoller_destroy (&poller);
+        mlm_client_destroy (&listener);
+    }
+    else {
+        zsys_info ("Rack controller asset name read from file.");
     }
 
+    if (zsys_interrupted) {
+        // no reason to go further
+        return 0;
+    }
+
+    // Phase 2
+    zsys_info ("Phase 2 - Read sensor data and publish");
+
+    mlm_client_t *client = mlm_client_new ();
     if (!client) {
         zsys_error ("mlm_client_new () failed");
         return EXIT_FAILURE;
     }
+    if (getenv ("BIOS_LOG_LEVEL") &&  streq (getenv ("BIOS_LOG_LEVEL"), "LOG_DEBUG")) {
+        zsys_debug ("mlm_client_set_verbose");
+        mlm_client_set_verbose (client, true);
+    }
+
+    std::string id = std::string(agent.agent_name) + "@" + hostname;
 
     int rv = mlm_client_connect (client, addr, 1000, id.c_str ());
     if (rv == -1) {
@@ -205,16 +310,6 @@ main (int argc, char *argv []) {
     }
     zsys_info ("Connected to '%s'", endpoint);
 
-    rv = mlm_client_set_consumer (client, BIOS_PROTO_STREAM_ASSETS, ".*");
-    if (rv == -1) {
-        mlm_client_destroy (&client);
-        zsys_error (
-                "mlm_client_set_consumer (stream = '%s', pattern = '%s') failed",
-                BIOS_PROTO_STREAM_ASSETS, ".*");
-        return EXIT_FAILURE;
-    }
-    zsys_info ("Subscribed to '%s'", BIOS_PROTO_STREAM_ASSETS);
-
     rv = mlm_client_set_producer (client, BIOS_PROTO_STREAM_METRICS_SENSOR);
     if (rv == -1) {
         mlm_client_destroy (&client);
@@ -224,17 +319,6 @@ main (int argc, char *argv []) {
         return EXIT_FAILURE;
     }
     zsys_info ("Publishing to '%s' as '%s'", BIOS_PROTO_STREAM_METRICS_SENSOR, id.c_str());
-
-    zpoller_t *poller = NULL;
-
-    if (have_rc3name == false) {
-        poller = zpoller_new (mlm_client_msgpipe (client), NULL);
-        if (!poller) {
-            mlm_client_destroy (&client);
-            zsys_error ("zpoller_new () failed"); 
-            return EXIT_FAILURE;
-        }
-    }
 
     while (!zsys_interrupted) {
         // Go through all the stuff we monitor
@@ -285,95 +369,36 @@ main (int argc, char *argv []) {
             bios_proto_destroy (&msg);
             what++;
         }
-
         if (zsys_interrupted) {
-            zsys_warning ("interrupted ... ");
+            zsys_warning ("interrupted ...  ");
             break;
         }
-
-        if (have_rc3name == false) {
-            zsys_debug ("waiting for asset message");
-            zclock_sleep(POLLING_INTERVAL - 1000); // monitoring interval
-
-            if (zsys_interrupted) {
-                zsys_warning ("interrupted ... ");
-                break;
-            }
-            zsys_debug ("polling");
-            void *which = zpoller_wait (poller, 1000); // timeout in msec
-
-            if (which == NULL) {
-                zsys_debug ("which == NULL");
-                if (zsys_interrupted) {
-                    zsys_warning ("interrupted ... ");
-                    break;
-                }
-                if (zpoller_expired (poller)) {
-                    zsys_warning ("expired ... ");
-                    continue;
-                }
-            }
-            
-            assert (which == mlm_client_msgpipe (client));
-
-            if (which == mlm_client_msgpipe (client)) {
-                zsys_debug ("which == mlm_client_msgpipe");
-                zmsg_t *message = mlm_client_recv (client);
-                if (!message) {
-                    zsys_warning ("message == NULL");
-                    break;
-                }
-                bios_proto_t *asset = bios_proto_decode (&message);
-                if (!asset || bios_proto_id (asset) != BIOS_PROTO_ASSET) {
-                    bios_proto_destroy (&asset);
-                    zsys_warning ("bios_proto_decode () failed OR received message not BIOS_PROTO_ASSET");
-                    continue;
-                }
-                const char *operation = bios_proto_operation (asset);
-                const char *type = bios_proto_aux_string (asset, "type", "");
-                const char *subtype = bios_proto_aux_string (asset, "subtype", "");
-                
-                if ((streq (operation, BIOS_PROTO_ASSET_OP_CREATE) || streq (operation, BIOS_PROTO_ASSET_OP_UPDATE)) &&
-                    streq (type, "device") &&
-                    streq (subtype, "rack controller")) { 
-                    hostname = bios_proto_name (asset); 
-                    have_rc3name = true;
-                    zsys_info ("Received rc3 name '%s'", hostname.c_str ());
-                }
-                bios_proto_destroy (&asset);
-            }
-        }
-        else {
-            zclock_sleep(POLLING_INTERVAL); // monitoring interval
-        }
+        zclock_sleep(POLLING_INTERVAL); // monitoring interval
     }
     
-    if (have_rc3name == true) {
-        // Temporary workaround
-        // Try to write to /var/lib/bios/composite-metrics/agent_th
+    // Temporary workaround
+    // Try to write to /var/lib/bios/composite-metrics/agent_th
 
-        zsys_info ("Trying to write to '%s'", HOSTNAME_FILE);
-        file = zfile_new (NULL, HOSTNAME_FILE);
-        if (file) {
-            zfile_remove (file);
-            if (zfile_output (file) == 0) {
-                zchunk_t *chunk = zchunk_new ((const void *) hostname.c_str (), hostname.size ());
-                rv = zfile_write (file, chunk, (off_t) 0);
-                if (rv != 0)
-                    zsys_error ("could not write to '%s'", HOSTNAME_FILE);
-                zchunk_destroy (&chunk);
-                zfile_close (file);
-            }
-            else 
-                zsys_error ("'%s' is not writable", HOSTNAME_FILE);
+    zsys_info ("Trying to write to '%s'", HOSTNAME_FILE);
+    file = zfile_new (NULL, HOSTNAME_FILE);
+    if (file) {
+        zfile_remove (file);
+        if (zfile_output (file) == 0) {
+            zchunk_t *chunk = zchunk_new ((const void *) hostname.c_str (), hostname.size ());
+            rv = zfile_write (file, chunk, (off_t) 0);
+            if (rv != 0)
+                zsys_error ("could not write to '%s'", HOSTNAME_FILE);
+            zchunk_destroy (&chunk);
+            zfile_close (file);
         }
-        else {
-            zsys_error ("could not write to '%s'", HOSTNAME_FILE);
-        }
-        zfile_destroy (&file);
+        else 
+            zsys_error ("'%s' is not writable", HOSTNAME_FILE);
     }
+    else {
+        zsys_error ("could not write to '%s'", HOSTNAME_FILE);
+    }
+    zfile_destroy (&file);
 
-    zpoller_destroy (&poller);
     mlm_client_destroy (&client);
     return 0;
 }
