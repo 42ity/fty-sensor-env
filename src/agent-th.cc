@@ -292,31 +292,32 @@ main (int argc, char *argv []) {
         }
 
         if (have_rc3name == false) {
+            zsys_debug ("waiting for asset message");
             zclock_sleep(POLLING_INTERVAL - 1000); // monitoring interval
 
             if (zsys_interrupted) {
                 zsys_warning ("interrupted ... ");
                 break;
             }
-
+            zsys_debug ("polling");
             void *which = zpoller_wait (poller, 1000); // timeout in msec
-            if (which == NULL && zpoller_expired (poller)) {
-                zsys_debug ("poller expired");
-                continue;
-            }
 
-            if (which == NULL && zsys_interrupted) {
-                zsys_warning ("interrupted ... ");
-                break;
+            if (which == NULL) {
+                zsys_debug ("which == NULL");
+                if (zsys_interrupted) {
+                    zsys_warning ("interrupted ... ");
+                    break;
+                }
+                if (zpoller_expired (poller)) {
+                    zsys_warning ("expired ... ");
+                    continue;
+                }
             }
+            
+            assert (which == mlm_client_msgpipe (client));
 
-            if (which != mlm_client_msgpipe (client)) {
-                zsys_error ("ERROR! ERROR! ERROR! which was supposed to be == mlm_client_msgpipe (client)");
-                zsys_error ("ERROR! ERROR! ERROR! which was supposed to be == mlm_client_msgpipe (client)");
-                zsys_error ("ERROR! ERROR! ERROR! which was supposed to be == mlm_client_msgpipe (client)");
-                continue;
-            }
             if (which == mlm_client_msgpipe (client)) {
+                zsys_debug ("which == mlm_client_msgpipe");
                 zmsg_t *message = mlm_client_recv (client);
                 if (!message) {
                     zsys_warning ("message == NULL");
@@ -347,27 +348,30 @@ main (int argc, char *argv []) {
         }
     }
     
-    // Temporary workaround
-    // Try to write to /var/lib/bios/composite-metrics/agent_th
-    zsys_info ("Trying to write to '%s'", HOSTNAME_FILE);
-    file = zfile_new (NULL, HOSTNAME_FILE);
-    if (file) {
-        zfile_remove (file);
-        if (zfile_output (file) == 0) {
-            zchunk_t *chunk = zchunk_new ((const void *) hostname.c_str (), hostname.size ());
-            rv = zfile_write (file, chunk, (off_t) 0);
-            if (rv != 0)
-                zsys_error ("could not write to '%s'", HOSTNAME_FILE);
-            zchunk_destroy (&chunk);
-            zfile_close (file);
+    if (have_rc3name == true) {
+        // Temporary workaround
+        // Try to write to /var/lib/bios/composite-metrics/agent_th
+
+        zsys_info ("Trying to write to '%s'", HOSTNAME_FILE);
+        file = zfile_new (NULL, HOSTNAME_FILE);
+        if (file) {
+            zfile_remove (file);
+            if (zfile_output (file) == 0) {
+                zchunk_t *chunk = zchunk_new ((const void *) hostname.c_str (), hostname.size ());
+                rv = zfile_write (file, chunk, (off_t) 0);
+                if (rv != 0)
+                    zsys_error ("could not write to '%s'", HOSTNAME_FILE);
+                zchunk_destroy (&chunk);
+                zfile_close (file);
+            }
+            else 
+                zsys_error ("'%s' is not writable", HOSTNAME_FILE);
         }
-        else 
-            zsys_error ("'%s' is not writable", HOSTNAME_FILE);
+        else {
+            zsys_error ("could not write to '%s'", HOSTNAME_FILE);
+        }
+        zfile_destroy (&file);
     }
-    else {
-        zsys_error ("could not write to '%s'", HOSTNAME_FILE);
-    }
-    zfile_destroy (&file);
 
     zpoller_destroy (&poller);
     mlm_client_destroy (&client);
