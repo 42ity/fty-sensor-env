@@ -280,6 +280,31 @@ main (int argc, char *argv []) {
         zsys_info ("Rack controller asset name read from file.");
     }
 
+    if (have_rc3name == true) {
+        // Temporary workaround
+        // Try to write to /var/lib/bios/composite-metrics/agent_th
+
+        zsys_info ("Trying to write to '%s'", HOSTNAME_FILE);
+        file = zfile_new (NULL, HOSTNAME_FILE);
+        if (file) {
+            zfile_remove (file);
+            if (zfile_output (file) == 0) {
+                zchunk_t *chunk = zchunk_new ((const void *) hostname.c_str (), hostname.size ());
+                int rv = zfile_write (file, chunk, (off_t) 0);
+                if (rv != 0)
+                    zsys_error ("could not write to '%s'", HOSTNAME_FILE);
+                zchunk_destroy (&chunk);
+                zfile_close (file);
+            }
+            else 
+                zsys_error ("'%s' is not writable", HOSTNAME_FILE);
+        }
+        else {
+            zsys_error ("could not write to '%s'", HOSTNAME_FILE);
+        }
+        zfile_destroy (&file);
+    }
+
     if (zsys_interrupted) {
         // no reason to go further
         return 0;
@@ -375,29 +400,6 @@ main (int argc, char *argv []) {
         }
         zclock_sleep(POLLING_INTERVAL); // monitoring interval
     }
-    
-    // Temporary workaround
-    // Try to write to /var/lib/bios/composite-metrics/agent_th
-
-    zsys_info ("Trying to write to '%s'", HOSTNAME_FILE);
-    file = zfile_new (NULL, HOSTNAME_FILE);
-    if (file) {
-        zfile_remove (file);
-        if (zfile_output (file) == 0) {
-            zchunk_t *chunk = zchunk_new ((const void *) hostname.c_str (), hostname.size ());
-            rv = zfile_write (file, chunk, (off_t) 0);
-            if (rv != 0)
-                zsys_error ("could not write to '%s'", HOSTNAME_FILE);
-            zchunk_destroy (&chunk);
-            zfile_close (file);
-        }
-        else 
-            zsys_error ("'%s' is not writable", HOSTNAME_FILE);
-    }
-    else {
-        zsys_error ("could not write to '%s'", HOSTNAME_FILE);
-    }
-    zfile_destroy (&file);
 
     mlm_client_destroy (&client);
     return 0;
