@@ -1,30 +1,23 @@
-This package was debianized by Michal Vyskocil <MichalVyskocil@Eaton.com> on
-Fri, 15 Jan 2016 13:44:35 +0100
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: agent-th
 
-Upstream Authors:
-
-  Michal Hrusecky <MichalHrusecky@Eaton.com>
-  Michal Vyskocil <MichalVyskocil@Eaton.com>
-
-Copyright:
-
-  Copyright (C) 2015-2016 Eaton
-
-Licenses:
-
-  Copyright © 2015-2016 Eaton. This software is confidential and licensed under
-  Eaton Proprietary License (EPL or EULA).
-
-  This software is not authorized to be used, duplicated or disclosed to anyone
-  without the prior written permission of Eaton.
-
-  Limitations, restrictions and exclusions of the Eaton applicable standard terms
-  and conditions, such as its EPL and EULA, apply.
-
-  On Debian systems, the full text of the Eaton EULA
-  may be found in /usr/share/common-licenses/Eaton-EULA.
-
-
-The Debian packaging is Copyright (C) 2015-2016 Eaton,
-and is licensed under the Eaton EULA, see
-`/usr/share/common-licenses/Eaton-EULA'.
+Files: *
+Copyright: Copyright 2015, 2016 Eaton
+License: GPL-2+
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 2 of the License, or
+ (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License along
+ with this program; if not, write to the Free Software Foundation, Inc.,
+ 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ .
+ On Debian systems, the full text of the GNU General Public
+ License version 2 can be found in the file
+ `/usr/share/common-licenses/GPL-2'.
