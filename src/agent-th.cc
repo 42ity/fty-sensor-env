@@ -242,7 +242,6 @@ main (int argc, char *argv []) {
                     break;
                 }
                 if (zpoller_expired (poller)) {
-                    zsys_warning ("poller expired ... ");
                     continue;
                 }
             }
