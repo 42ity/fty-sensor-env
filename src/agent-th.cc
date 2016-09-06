@@ -124,9 +124,10 @@ get_measurement (char* what) {
         data.broken = false;
     }
 
-    free(th);
-    if ((data_p == NULL) || data_p->broken)
+    if ((data_p == NULL) || data_p->broken) {
+        free(th);
         return NULL;
+    }
 
     // Formulate a response
     if (what[0] == 't') {
@@ -145,6 +146,11 @@ get_measurement (char* what) {
 
         zsys_debug("Returning H = %s %%", bios_proto_value (ret));
     }
+    zhash_t *aux = zhash_new ();
+    zhash_autofree (aux);
+    zhash_insert (aux, "port", th);
+    bios_proto_set_aux (ret, &aux);
+    free(th);
     return ret;
 }
 
