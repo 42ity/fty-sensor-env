@@ -1,14 +1,19 @@
 /*
-Code in this repository is part of Eaton Intelligent Power Controller SW suite
+Copyright (C) 2014 - 2015 Eaton
 
-Copyright © 2015-2016 Eaton. This software is confidential and licensed under
-Eaton Proprietary License (EPL or EULA).
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
-This software is not authorized to be used, duplicated or disclosed to anyone
-without the prior written permission of Eaton.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-Limitations, restrictions and exclusions of the Eaton applicable standard terms
-and conditions, such as its EPL and EULA, apply.
+You should have received a copy of the GNU General Public License along
+with this program; if not, write to the Free Software Foundation, Inc.,
+51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
 /*!
@@ -86,7 +91,7 @@ get_measurement (char* what) {
 
     bios_proto_t* ret = NULL;
     char *th = strdup(what + (strlen(what) - 3));
-    c_item data = { 0, false, 0, 0 }, *data_p = NULL;    
+    c_item data = { 0, false, 0, 0 }, *data_p = NULL;
     zsys_debug ("Measuring '%s'", what);
 
     std::string path = "/dev/ttyS";
@@ -119,9 +124,10 @@ get_measurement (char* what) {
         data.broken = false;
     }
 
-    free(th);
-    if ((data_p == NULL) || data_p->broken)
+    if ((data_p == NULL) || data_p->broken) {
+        free(th);
         return NULL;
+    }
 
     // Formulate a response
     if (what[0] == 't') {
@@ -140,6 +146,11 @@ get_measurement (char* what) {
 
         zsys_debug("Returning H = %s %%", bios_proto_value (ret));
     }
+    zhash_t *aux = zhash_new ();
+    zhash_autofree (aux);
+    zhash_insert (aux, "port", th);
+    bios_proto_set_aux (ret, &aux);
+    free(th);
     return ret;
 }
 
@@ -205,7 +216,7 @@ main (int argc, char *argv []) {
             zsys_error (
                     "mlm_client_connect (endpoint = '%s', timeout = '1000', address = '%s') failed",
                     addr, id.c_str ());
-            return EXIT_FAILURE; 
+            return EXIT_FAILURE;
         }
         zsys_info ("Connected to '%s'", endpoint);
 
@@ -222,10 +233,10 @@ main (int argc, char *argv []) {
         zpoller_t *poller = zpoller_new (mlm_client_msgpipe (listener), NULL);
         if (!poller) {
             mlm_client_destroy (&listener);
-            zsys_error ("zpoller_new () failed"); 
+            zsys_error ("zpoller_new () failed");
             return EXIT_FAILURE;
         }
-    
+
         while (!zsys_interrupted && have_rc3name == false) {
 
             void *which = zpoller_wait (poller, 5000); // timeout in msec
@@ -237,11 +248,10 @@ main (int argc, char *argv []) {
                     break;
                 }
                 if (zpoller_expired (poller)) {
-                    zsys_warning ("poller expired ... ");
                     continue;
                 }
             }
-            
+
             assert (which == mlm_client_msgpipe (listener));
             zsys_debug ("which == mlm_client_msgpipe");
 
@@ -261,12 +271,12 @@ main (int argc, char *argv []) {
             const char *operation = bios_proto_operation (asset);
             const char *type = bios_proto_aux_string (asset, "type", "");
             const char *subtype = bios_proto_aux_string (asset, "subtype", "");
-            
+
             if ((streq (operation, BIOS_PROTO_ASSET_OP_CREATE) || streq (operation, BIOS_PROTO_ASSET_OP_UPDATE)) &&
                 streq (type, "device") &&
                 streq (subtype, "rack controller"))
-            { 
-                hostname = bios_proto_name (asset); 
+            {
+                hostname = bios_proto_name (asset);
                 have_rc3name = true;
                 zsys_info ("Received rc3 name '%s'", hostname.c_str ());
                 {
@@ -285,7 +295,7 @@ main (int argc, char *argv []) {
                             zchunk_destroy (&chunk);
                             zfile_close (file);
                         }
-                        else 
+                        else
                             zsys_error ("'%s' is not writable", HOSTNAME_FILE);
                     }
                     else {
@@ -330,7 +340,7 @@ main (int argc, char *argv []) {
         zsys_error (
                 "mlm_client_connect (endpoint = '%s', timeout = '1000', address = '%s') failed",
                 addr, id.c_str ());
-        return EXIT_FAILURE; 
+        return EXIT_FAILURE;
     }
     zsys_info ("Connected to '%s'", endpoint);
 
@@ -363,7 +373,7 @@ main (int argc, char *argv []) {
                     bios_proto_destroy (&msg);
                     zsys_warning ("interrupted inner ... ");
                     break;
-                } 
+                }
                 continue;
             }
 
@@ -384,7 +394,7 @@ main (int argc, char *argv []) {
 
 
             // Send it
-            zmsg_t *to_send = bios_proto_encode (&msg);  
+            zmsg_t *to_send = bios_proto_encode (&msg);
             rv = mlm_client_send (client, topic, &to_send);
             if (rv != 0) {
                 zsys_error ("mlm_client_send (subject = '%s') failed", topic);
