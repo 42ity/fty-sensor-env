@@ -402,6 +402,7 @@ main (int argc, char *argv []) {
 
             bios_proto_destroy (&msg);
             what++;
+            zstr_free (&topic);
         }
         if (zsys_interrupted) {
             zsys_warning ("interrupted ...  ");
