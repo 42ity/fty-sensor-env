@@ -159,7 +159,6 @@ main (int argc, char *argv []) {
 
     const char *endpoint = "ipc://@/malamute";
     const char *addr = (argc == 1) ? "ipc://@/malamute" : argv[1];
-
     char *bios_log_level = getenv ("BIOS_LOG_LEVEL");
     if (bios_log_level && streq (bios_log_level, "LOG_DEBUG"))
         agent_th_verbose = true;
@@ -202,10 +201,6 @@ main (int argc, char *argv []) {
         if (!listener) {
             zsys_error ("mlm_client_new () failed");
             return EXIT_FAILURE;
-        }
-        if (getenv ("BIOS_LOG_LEVEL") && streq (getenv ("BIOS_LOG_LEVEL"), "LOG_DEBUG")) {
-            zsys_debug ("mlm_client_set_verbose");
-            mlm_client_set_verbose (listener, true);
         }
 
         std::string id = std::string(agent.agent_name) + "@" + hostname;
