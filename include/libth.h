@@ -22,7 +22,7 @@
 #ifndef LIBTH_H_INCLUDED
 #define LIBTH_H_INCLUDED
 
-#include "th_library.h"
+#include "fty_sensor_env_library.h"
 
 #define TIOCRS232    0x5201  // OpenGear RS232 setting ioctl
                              //adr  command  r/w
@@ -37,12 +37,13 @@
 extern "C" {
 #endif
 
-TH_EXPORT int open_device(const char* dev);
-TH_EXPORT bool device_connected(int fd);
-TH_EXPORT void reset_device(int fd);
-TH_EXPORT int get_th_data(int fd, unsigned char what);
-TH_EXPORT void compensate_humidity(int H, int T, int32_t* out);
-TH_EXPORT void compensate_temp(int in, int32_t *out);
+FTY_SENSOR_ENV_EXPORT int open_device(const char* dev);
+FTY_SENSOR_ENV_EXPORT bool device_connected(int fd);
+FTY_SENSOR_ENV_EXPORT void reset_device(int fd);
+FTY_SENSOR_ENV_EXPORT int get_th_data(int fd, unsigned char what);
+FTY_SENSOR_ENV_EXPORT void compensate_humidity(int H, int T, int32_t* out);
+FTY_SENSOR_ENV_EXPORT void compensate_temp(int in, int32_t *out);
+FTY_SENSOR_ENV_EXPORT void libth_test (bool verbose);
 
 //  @interface
 //  @end

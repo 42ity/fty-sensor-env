@@ -23,7 +23,7 @@
 #define AGENT_TH_H_INCLUDED
 
 //  Include the project library file
-#include "th_library.h"
+#include "fty_sensor_env_library.h"
 
 //  Add your own public definitions here, if you need them
 

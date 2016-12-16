@@ -251,3 +251,10 @@ int open_device(const char* dev) {
     return fd;
 }
 
+void
+libth_test (bool verbose)
+{
+   printf (" * libth: ");
+   // put some real test here
+   printf ("OK\n");
+}
