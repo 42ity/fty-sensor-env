@@ -1,24 +1,27 @@
-LIBTH(3)
+libth(3)
 ========
 
 NAME
 ----
-libth - A library to interface with Eaton Temperature and humidity sensor
-
+libth - Internal lib
 
 SYNOPSIS
 --------
 ----
-#include <agent_th.h>
-
-cc ['flags'] 'files' -lth ['libraries']
+Please add '@interface' section in './../include/libth.h'.
+Please add '@interface' section in './../src/libth.cc'.
 ----
-
 
 DESCRIPTION
 -----------
 
-Classes
-~~~~~~~
+Please add '@header' section in './../src/libth.cc'.
 
-Something.
+Please add '@discuss' section in './../src/libth.cc'.
+
+EXAMPLE
+-------
+.From libth_test method
+----
+Please add '@selftest' section in './../src/libth.cc'.
+----

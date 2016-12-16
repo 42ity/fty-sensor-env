@@ -24,7 +24,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
  * \brief Not yet documented file
  */
 
-#include "../include/th_library.h"
+#include "../include/fty_sensor_env_library.h"
 
 #include <vector>
 #include <map>
@@ -40,9 +40,9 @@ bool agent_th_verbose = false;
     do { if (agent_th_verbose) zsys_debug (__VA_ARGS__); } while (0);
 
 // temporary
-#define HOSTNAME_FILE "/var/lib/bios/composite-metrics/agent_th"
+#define HOSTNAME_FILE "/var/lib/fty/composite-metrics/agent_th"
 
-bios_proto_t*
+fty_proto_t*
 get_measurement (char* what);
 
 // strdup is to avoid -Werror=write-strings - not enough time to rewrite it properly
@@ -67,7 +67,7 @@ struct sample_agent {
     const char* at;           /*!< Printf formated string for where are we
                                    measuring, %s will be filled with hostname */
     int32_t diff;             /*!< Minimum difference required for publishing */
-    bios_proto_t* (*get_measurement)(char* what); //!< Measuring itself
+    fty_proto_t* (*get_measurement)(char* what); //!< Measuring itself
 };
 
 sample_agent agent = {
@@ -86,10 +86,10 @@ struct c_item {
     int32_t H;
 };
 
-bios_proto_t*
+fty_proto_t*
 get_measurement (char* what) {
 
-    bios_proto_t* ret = NULL;
+    fty_proto_t* ret = NULL;
     char *th = strdup(what + (strlen(what) - 3));
     c_item data = { 0, false, 0, 0 }, *data_p = NULL;
     zsys_debug ("Measuring '%s'", what);
@@ -131,25 +131,25 @@ get_measurement (char* what) {
 
     // Formulate a response
     if (what[0] == 't') {
-        ret = bios_proto_new (BIOS_PROTO_METRIC);
-        bios_proto_set_value (ret, "%.2f", data_p->T / (float) 100);
-        bios_proto_set_unit (ret, "%s", "C");
-        bios_proto_set_ttl (ret, TIME_TO_LIVE);
+        ret = fty_proto_new (FTY_PROTO_METRIC);
+        fty_proto_set_value (ret, "%.2f", data_p->T / (float) 100);
+        fty_proto_set_unit (ret, "%s", "C");
+        fty_proto_set_ttl (ret, TIME_TO_LIVE);
 
-        zsys_debug ("Returning T = %s C", bios_proto_value (ret));
+        zsys_debug ("Returning T = %s C", fty_proto_value (ret));
     }
     else {
-        ret = bios_proto_new (BIOS_PROTO_METRIC);
-        bios_proto_set_value (ret, "%.2f", data_p->H / (float) 100);
-        bios_proto_set_unit (ret, "%s", "%");
-        bios_proto_set_ttl (ret, TIME_TO_LIVE);
+        ret = fty_proto_new (FTY_PROTO_METRIC);
+        fty_proto_set_value (ret, "%.2f", data_p->H / (float) 100);
+        fty_proto_set_unit (ret, "%s", "%");
+        fty_proto_set_ttl (ret, TIME_TO_LIVE);
 
-        zsys_debug("Returning H = %s %%", bios_proto_value (ret));
+        zsys_debug("Returning H = %s %%", fty_proto_value (ret));
     }
     zhash_t *aux = zhash_new ();
     zhash_autofree (aux);
     zhash_insert (aux, "port", th);
-    bios_proto_set_aux (ret, &aux);
+    fty_proto_set_aux (ret, &aux);
     free(th);
     return ret;
 }
@@ -159,8 +159,8 @@ main (int argc, char *argv []) {
 
     const char *endpoint = "ipc://@/malamute";
     const char *addr = (argc == 1) ? "ipc://@/malamute" : argv[1];
-    char *bios_log_level = getenv ("BIOS_LOG_LEVEL");
-    if (bios_log_level && streq (bios_log_level, "LOG_DEBUG"))
+    char *fty_log_level = getenv ("FTY_LOG_LEVEL");
+    if (fty_log_level && streq (fty_log_level, "LOG_DEBUG"))
         agent_th_verbose = true;
 
     // Form ID from hostname and agent name
@@ -174,7 +174,7 @@ main (int argc, char *argv []) {
     zsys_info ("Phase 1 - Get rack controller asset name");
 
     // Temporary workaround
-    // Try to read from /var/lib/bios/composite-metrics/agent_th
+    // Try to read from /var/lib/fty/composite-metrics/agent_th
     zsys_info ("Trying to read from '%s' if it exists", HOSTNAME_FILE);
 
     zfile_t *file = zfile_new (NULL, HOSTNAME_FILE);
@@ -215,15 +215,15 @@ main (int argc, char *argv []) {
         }
         zsys_info ("Connected to '%s'", endpoint);
 
-        rv = mlm_client_set_consumer (listener, BIOS_PROTO_STREAM_ASSETS, ".*");
+        rv = mlm_client_set_consumer (listener, FTY_PROTO_STREAM_ASSETS, ".*");
         if (rv == -1) {
             mlm_client_destroy (&listener);
             zsys_error (
                     "mlm_client_set_consumer (stream = '%s', pattern = '%s') failed",
-                    BIOS_PROTO_STREAM_ASSETS, ".*");
+                    FTY_PROTO_STREAM_ASSETS, ".*");
             return EXIT_FAILURE;
         }
-        zsys_info ("Subscribed to '%s'", BIOS_PROTO_STREAM_ASSETS);
+        zsys_info ("Subscribed to '%s'", FTY_PROTO_STREAM_ASSETS);
 
         zpoller_t *poller = zpoller_new (mlm_client_msgpipe (listener), NULL);
         if (!poller) {
@@ -256,27 +256,27 @@ main (int argc, char *argv []) {
                 break;
             }
 
-            bios_proto_t *asset = bios_proto_decode (&message);
-            if (!asset || bios_proto_id (asset) != BIOS_PROTO_ASSET) {
-                bios_proto_destroy (&asset);
-                zsys_warning ("bios_proto_decode () failed OR received message not BIOS_PROTO_ASSET");
+            fty_proto_t *asset = fty_proto_decode (&message);
+            if (!asset || fty_proto_id (asset) != FTY_PROTO_ASSET) {
+                fty_proto_destroy (&asset);
+                zsys_warning ("fty_proto_decode () failed OR received message not FTY_PROTO_ASSET");
                 continue;
             }
             zsys_info ("Received asset message");
-            const char *operation = bios_proto_operation (asset);
-            const char *type = bios_proto_aux_string (asset, "type", "");
-            const char *subtype = bios_proto_aux_string (asset, "subtype", "");
+            const char *operation = fty_proto_operation (asset);
+            const char *type = fty_proto_aux_string (asset, "type", "");
+            const char *subtype = fty_proto_aux_string (asset, "subtype", "");
 
-            if ((streq (operation, BIOS_PROTO_ASSET_OP_CREATE) || streq (operation, BIOS_PROTO_ASSET_OP_UPDATE)) &&
+            if ((streq (operation, FTY_PROTO_ASSET_OP_CREATE) || streq (operation, FTY_PROTO_ASSET_OP_UPDATE)) &&
                 streq (type, "device") &&
                 streq (subtype, "rack controller"))
             {
-                hostname = bios_proto_name (asset);
+                hostname = fty_proto_name (asset);
                 have_rc3name = true;
                 zsys_info ("Received rc3 name '%s'", hostname.c_str ());
                 {
                     // Temporary workaround
-                    // Try to write to /var/lib/bios/composite-metrics/agent_th
+                    // Try to write to /var/lib/fty/composite-metrics/agent_th
 
                     zsys_info ("Trying to write to '%s'", HOSTNAME_FILE);
                     file = zfile_new (NULL, HOSTNAME_FILE);
@@ -299,7 +299,7 @@ main (int argc, char *argv []) {
                     zfile_destroy (&file);
                 }
             }
-            bios_proto_destroy (&asset);
+            fty_proto_destroy (&asset);
         }
 
         zpoller_destroy (&poller);
@@ -322,7 +322,7 @@ main (int argc, char *argv []) {
         zsys_error ("mlm_client_new () failed");
         return EXIT_FAILURE;
     }
-    if (getenv ("BIOS_LOG_LEVEL") &&  streq (getenv ("BIOS_LOG_LEVEL"), "LOG_DEBUG")) {
+    if (getenv ("FTY_LOG_LEVEL") &&  streq (getenv ("FTY_LOG_LEVEL"), "LOG_DEBUG")) {
         zsys_debug ("mlm_client_set_verbose");
         mlm_client_set_verbose (client, true);
     }
@@ -339,24 +339,24 @@ main (int argc, char *argv []) {
     }
     zsys_info ("Connected to '%s'", endpoint);
 
-    rv = mlm_client_set_producer (client, BIOS_PROTO_STREAM_METRICS_SENSOR);
+    rv = mlm_client_set_producer (client, FTY_PROTO_STREAM_METRICS_SENSOR);
     if (rv == -1) {
         mlm_client_destroy (&client);
         zsys_error (
                 "mlm_client_set_producer (stream = '%s') failed",
-                BIOS_PROTO_STREAM_METRICS_SENSOR);
+                FTY_PROTO_STREAM_METRICS_SENSOR);
         return EXIT_FAILURE;
     }
-    zsys_info ("Publishing to '%s' as '%s'", BIOS_PROTO_STREAM_METRICS_SENSOR, id.c_str());
+    zsys_info ("Publishing to '%s' as '%s'", FTY_PROTO_STREAM_METRICS_SENSOR, id.c_str());
 
     while (!zsys_interrupted) {
         // Go through all the stuff we monitor
         char **what = agent.variants;
         while (what != NULL && *what != NULL && !zsys_interrupted) {
 
-            bios_proto_t* msg = agent.get_measurement(*what);
+            fty_proto_t* msg = agent.get_measurement(*what);
             if (zsys_interrupted) {
-                bios_proto_destroy (&msg);
+                fty_proto_destroy (&msg);
                 zsys_warning ("interrupted inner ...  ");
                 break;
             }
@@ -365,7 +365,7 @@ main (int argc, char *argv []) {
                 zclock_sleep (100);
                 what++;
                 if (zsys_interrupted) {
-                    bios_proto_destroy (&msg);
+                    fty_proto_destroy (&msg);
                     zsys_warning ("interrupted inner ... ");
                     break;
                 }
@@ -379,23 +379,23 @@ main (int argc, char *argv []) {
                                         strlen(*what) + 5);
             assert (topic);
             sprintf(topic, agent.at, hostname.c_str ());
-            bios_proto_set_element_src (msg, "%s", topic);
+            fty_proto_set_element_src (msg, "%s", topic);
 
             sprintf(topic, agent.measurement, *what);
-            bios_proto_set_type (msg, "%s", topic);
+            fty_proto_set_type (msg, "%s", topic);
             strcat(topic, "@");
             sprintf(topic + strlen(topic), agent.at, hostname.c_str ());
-            zsys_debug("Sending new measurement '%s' with value '%s'", topic, bios_proto_value (msg));
+            zsys_debug("Sending new measurement '%s' with value '%s'", topic, fty_proto_value (msg));
 
 
             // Send it
-            zmsg_t *to_send = bios_proto_encode (&msg);
+            zmsg_t *to_send = fty_proto_encode (&msg);
             rv = mlm_client_send (client, topic, &to_send);
             if (rv != 0) {
                 zsys_error ("mlm_client_send (subject = '%s') failed", topic);
             }
 
-            bios_proto_destroy (&msg);
+            fty_proto_destroy (&msg);
             what++;
             zstr_free (&topic);
         }
