@@ -7,7 +7,7 @@
 # Process this file with autoconf to produce a configure script.
 AC_PREREQ(2.61)
 #
-AC_INIT([fty-sensor-env],[0.0.0],[eatonipcopensource@eaton.com])
+AC_INIT([fty-sensor-env],[1.0.0],[eatonipcopensource@eaton.com])
 
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR(config)
@@ -36,7 +36,7 @@ AC_SUBST(PACKAGE_VERSION)
 # http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
 #
 # libfty_sensor_env -version-info
-LTVER="0:0:0"
+LTVER="1:0:0"
 AC_SUBST(LTVER)
 
 # Capture c flags
