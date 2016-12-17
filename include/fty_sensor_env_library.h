@@ -35,7 +35,7 @@
 #include <ftyproto.h>
 
 //  FTY_SENSOR_ENV version macros for compile-time API detection
-#define FTY_SENSOR_ENV_VERSION_MAJOR 0
+#define FTY_SENSOR_ENV_VERSION_MAJOR 1
 #define FTY_SENSOR_ENV_VERSION_MINOR 0
 #define FTY_SENSOR_ENV_VERSION_PATCH 0
 
