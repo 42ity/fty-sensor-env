@@ -1,4 +1,0 @@
-debian/tmp/usr/bin/agent-th
-debian/tmp/usr/lib/systemd/system/agent-th*.service
-
-

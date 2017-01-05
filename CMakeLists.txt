@@ -168,6 +168,9 @@ set_target_properties(fty_sensor_env
 set_target_properties(fty_sensor_env
     PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${SOURCE_DIR}/src"
 )
+set_target_properties (fty_sensor_env
+    PROPERTIES SOVERSION "0.0.0"
+)
 target_link_libraries(fty_sensor_env
     ${ZEROMQ_LIBRARIES} ${MORE_LIBRARIES}
 )
@@ -220,6 +223,9 @@ target_link_libraries(
 set_target_properties(
     fty-sensor-env
     PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${SOURCE_DIR}/src"
+)
+install(TARGETS fty-sensor-env
+    RUNTIME DESTINATION bin
 )
 add_executable(
     fty_sensor_env_selftest
