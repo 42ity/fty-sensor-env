@@ -37,6 +37,7 @@ typedef struct {
 static test_item_t
 all_tests [] = {
 #ifdef FTY_SENSOR_ENV_BUILD_DRAFT_API
+// Tests for draft public classes:
     { "libth", libth_test },
 #endif // FTY_SENSOR_ENV_BUILD_DRAFT_API
     {0, 0}          //  Sentinel
@@ -103,7 +104,7 @@ main (int argc, char **argv)
         if (streq (argv [argn], "--list")
         ||  streq (argv [argn], "-l")) {
             puts ("Available tests:");
-            puts ("    libth");
+            puts ("    libth\t- draft");
             return 0;
         }
         else

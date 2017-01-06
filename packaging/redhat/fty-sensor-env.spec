@@ -113,15 +113,15 @@ find %{buildroot} -name '*.la' | xargs rm -f
 %{_bindir}/fty-sensor-env
 %{_mandir}/man1/fty-sensor-env*
 %config(noreplace) %{_sysconfdir}/fty-sensor-env/fty-sensor-env.cfg
-/usr/lib/systemd/system/fty-sensor-env.service
+/usr/lib/systemd/system/fty-sensor-env{,@*}.{service,*}
 %dir %{_sysconfdir}/fty-sensor-env
 %if 0%{?suse_version} > 1315
 %post
-%systemd_post fty-sensor-env.service
+%systemd_post fty-sensor-env{,@*}.{service,*}
 %preun
-%systemd_preun fty-sensor-env.service
+%systemd_preun fty-sensor-env{,@*}.{service,*}
 %postun
-%systemd_postun_with_restart fty-sensor-env.service
+%systemd_postun_with_restart fty-sensor-env{,@*}.{service,*}
 %endif
 
 %changelog
