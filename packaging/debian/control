@@ -1,0 +1,71 @@
+#
+#    fty-sensor-env - Grab temperature and humidity data from sensors attached to the box
+#
+#    Copyright (C) 2014 - 2015 Eaton                                        
+#                                                                           
+#    This program is free software; you can redistribute it and/or modify   
+#    it under the terms of the GNU General Public License as published by   
+#    the Free Software Foundation; either version 2 of the License, or      
+#    (at your option) any later version.                                    
+#                                                                           
+#    This program is distributed in the hope that it will be useful,        
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of         
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          
+#    GNU General Public License for more details.                           
+#                                                                           
+#    You should have received a copy of the GNU General Public License along
+#    with this program; if not, write to the Free Software Foundation, Inc.,
+#    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.            
+
+Source:         fty-sensor-env
+Section:        net
+Priority:       optional
+Maintainer:     fty-sensor-env Developers <eatonipcopensource@eaton.com>
+Standards-Version: 3.9.7
+Build-Depends: debhelper (>= 9),
+    pkg-config,
+    dh-autoreconf,
+    libzmq3-dev,
+    libczmq-dev,
+    libmlm-dev,
+    libfty-proto-dev,
+# necessary for systemd.pc to get unit install path
+    systemd,
+    dh-systemd,
+Build-Depends-Indep: asciidoc,
+                     xmlto
+
+Package: libfty-sensor-env1
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: grab temperature and humidity data from sensors attached to the box shared library
+ This package contains shared library for fty-sensor-env: grab temperature and humidity data from sensors attached to the box
+
+Package: libfty-sensor-env-dev
+Architecture: any
+Section: libdevel
+Depends:
+    libzmq3-dev,
+    libczmq-dev,
+    libmlm-dev,
+    libfty-proto-dev,
+    libfty-sensor-env1 (= ${binary:Version})
+Description: grab temperature and humidity data from sensors attached to the box development tools
+ This package contains development files for fty-sensor-env: grab temperature and humidity data from sensors attached to the box
+
+Package: fty-sensor-env
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends},
+Description: grab temperature and humidity data from sensors attached to the box
+ Main package for fty-sensor-env: grab temperature and humidity data from sensors attached to the box
+
+Package: fty-sensor-env-dbg
+Architecture: any
+Section: debug
+Priority: extra
+Depends:
+    fty-sensor-env (= ${binary:Version}),
+    ${misc:Depends}
+Description: grab temperature and humidity data from sensors attached to the box debugging symbols
+ This package contains the debugging symbols for fty-sensor-env : grab temperature and humidity data from sensors attached to the box.
+

@@ -33,13 +33,18 @@ noinst_PROGRAMS =
 check_PROGRAMS =
 noinst_LTLIBRARIES =
 TESTS =
+EXTRA_DIST =
 
-EXTRA_DIST = \
-    CMakeLists.txt \
+if ENABLE_DIST_CMAKEFILES
+EXTRA_DIST += \
     Findlibzmq.cmake \
     Findczmq.cmake \
     Findmalamute.cmake \
     Findfty_proto.cmake \
+    CMakeLists.txt
+endif
+
+EXTRA_DIST += \
     LICENSE \
     src/fty_sensor_env_classes.h
 
