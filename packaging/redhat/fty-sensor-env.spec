@@ -1,7 +1,7 @@
 #
 #    fty-sensor-env - Grab temperature and humidity data from sensors attached to the box
 #
-#    Copyright (C) 2014 - 2015 Eaton                                        
+#    Copyright (C) 2014 - 2017 Eaton                                        
 #                                                                           
 #    This program is free software; you can redistribute it and/or modify   
 #    it under the terms of the GNU General Public License as published by   
@@ -59,24 +59,24 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 %description
 fty-sensor-env grab temperature and humidity data from sensors attached to the box.
 
-%package -n libfty_sensor_env0
+%package -n libfty_sensor_env1
 Group:          System/Libraries
 Summary:        grab temperature and humidity data from sensors attached to the box shared library
 
-%description -n libfty_sensor_env0
+%description -n libfty_sensor_env1
 This package contains shared library for fty-sensor-env: grab temperature and humidity data from sensors attached to the box
 
-%post -n libfty_sensor_env0 -p /sbin/ldconfig
-%postun -n libfty_sensor_env0 -p /sbin/ldconfig
+%post -n libfty_sensor_env1 -p /sbin/ldconfig
+%postun -n libfty_sensor_env1 -p /sbin/ldconfig
 
-%files -n libfty_sensor_env0
+%files -n libfty_sensor_env1
 %defattr(-,root,root)
 %{_libdir}/libfty_sensor_env.so.*
 
 %package devel
 Summary:        grab temperature and humidity data from sensors attached to the box
 Group:          System/Libraries
-Requires:       libfty_sensor_env0 = %{version}
+Requires:       libfty_sensor_env1 = %{version}
 Requires:       zeromq-devel
 Requires:       czmq-devel
 Requires:       malamute-devel
@@ -92,6 +92,7 @@ This package contains development files for fty-sensor-env: grab temperature and
 %{_libdir}/libfty_sensor_env.so
 %{_libdir}/pkgconfig/libfty_sensor_env.pc
 %{_mandir}/man3/*
+%{_mandir}/man7/*
 
 %prep
 %setup -q
@@ -112,16 +113,15 @@ find %{buildroot} -name '*.la' | xargs rm -f
 %defattr(-,root,root)
 %{_bindir}/fty-sensor-env
 %{_mandir}/man1/fty-sensor-env*
-%config(noreplace) %{_sysconfdir}/fty-sensor-env/fty-sensor-env.cfg
-/usr/lib/systemd/system/fty-sensor-env{,@*}.{service,*}
+/usr/lib/systemd/system/fty-sensor-env.service
 %dir %{_sysconfdir}/fty-sensor-env
 %if 0%{?suse_version} > 1315
 %post
-%systemd_post fty-sensor-env{,@*}.{service,*}
+%systemd_post fty-sensor-env.service
 %preun
-%systemd_preun fty-sensor-env{,@*}.{service,*}
+%systemd_preun fty-sensor-env.service
 %postun
-%systemd_postun_with_restart fty-sensor-env{,@*}.{service,*}
+%systemd_postun_with_restart fty-sensor-env.service
 %endif
 
 %changelog

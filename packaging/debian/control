@@ -1,7 +1,7 @@
 #
 #    fty-sensor-env - Grab temperature and humidity data from sensors attached to the box
 #
-#    Copyright (C) 2014 - 2015 Eaton                                        
+#    Copyright (C) 2014 - 2017 Eaton                                        
 #                                                                           
 #    This program is free software; you can redistribute it and/or modify   
 #    it under the terms of the GNU General Public License as published by   
@@ -30,9 +30,8 @@ Build-Depends: debhelper (>= 9),
     libfty-proto-dev,
     systemd,
     dh-systemd,
+    asciidoc-base | asciidoc, xmlto,
     dh-autoreconf
-Build-Depends-Indep: asciidoc,
-                     xmlto
 
 Package: libfty-sensor-env1
 Architecture: any

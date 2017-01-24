@@ -1,7 +1,7 @@
 /*  =========================================================================
     fty-sensor-env - generated layer of public API
 
-    Copyright (C) 2014 - 2015 Eaton                                        
+    Copyright (C) 2014 - 2017 Eaton                                        
                                                                            
     This program is free software; you can redistribute it and/or modify   
     it under the terms of the GNU General Public License as published by   
@@ -84,6 +84,12 @@ typedef struct _libth_t libth_t;
 //  Public classes, each with its own header file
 #ifdef FTY_SENSOR_ENV_BUILD_DRAFT_API
 #include "libth.h"
+#endif // FTY_SENSOR_ENV_BUILD_DRAFT_API
+
+#ifdef FTY_SENSOR_ENV_BUILD_DRAFT_API
+//  Self test for private classes
+FTY_SENSOR_ENV_EXPORT void
+    fty_sensor_env_private_selftest (bool verbose);
 #endif // FTY_SENSOR_ENV_BUILD_DRAFT_API
 
 #endif
