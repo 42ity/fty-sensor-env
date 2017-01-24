@@ -157,6 +157,12 @@ IF (ENABLE_DRAFTS)
     )
 ENDIF (ENABLE_DRAFTS)
 
+IF (ENABLE_DRAFTS)
+    list (APPEND fty_sensor_env_sources
+        src/fty_sensor_env_private_selftest.cc
+    )
+ENDIF (ENABLE_DRAFTS)
+
 source_group("Source Files" FILES ${fty_sensor_env_sources})
 if (NOT DEFINED BUILD_SHARED_LIBS)
     SET(BUILD_SHARED_LIBS ON)
@@ -165,11 +171,8 @@ add_library(fty_sensor_env ${fty_sensor_env_sources})
 set_target_properties(fty_sensor_env
     PROPERTIES DEFINE_SYMBOL "FTY_SENSOR_ENV_EXPORTS"
 )
-set_target_properties(fty_sensor_env
-    PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${SOURCE_DIR}/src"
-)
 set_target_properties (fty_sensor_env
-    PROPERTIES SOVERSION "0.0.0"
+    PROPERTIES SOVERSION "1.0.0"
 )
 target_link_libraries(fty_sensor_env
     ${ZEROMQ_LIBRARIES} ${MORE_LIBRARIES}
@@ -220,10 +223,6 @@ target_link_libraries(
     ${FTY-PROTO_LIBRARIES}
     ${OPTIONAL_LIBRARIES}
 )
-set_target_properties(
-    fty-sensor-env
-    PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${SOURCE_DIR}/src"
-)
 install(TARGETS fty-sensor-env
     RUNTIME DESTINATION bin
 )
@@ -239,10 +238,6 @@ target_link_libraries(
     ${MALAMUTE_LIBRARIES}
     ${FTY-PROTO_LIBRARIES}
     ${OPTIONAL_LIBRARIES}
-)
-set_target_properties(
-    fty_sensor_env_selftest
-    PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${SOURCE_DIR}/src"
 )
 
 ########################################################################
@@ -264,6 +259,12 @@ set(TEST_CLASSES
 IF (ENABLE_DRAFTS)
     list (APPEND TEST_CLASSES
     libth
+    )
+ENDIF (ENABLE_DRAFTS)
+
+IF (ENABLE_DRAFTS)
+    list (APPEND TEST_CLASSES
+    private_classes
     )
 ENDIF (ENABLE_DRAFTS)
 

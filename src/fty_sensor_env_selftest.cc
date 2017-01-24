@@ -4,7 +4,7 @@
     Runs all selftests.
 
     -------------------------------------------------------------------------
-    Copyright (C) 2014 - 2015 Eaton                                        
+    Copyright (C) 2014 - 2017 Eaton                                        
                                                                            
     This program is free software; you can redistribute it and/or modify   
     it under the terms of the GNU General Public License as published by   
@@ -39,6 +39,9 @@ all_tests [] = {
 #ifdef FTY_SENSOR_ENV_BUILD_DRAFT_API
 // Tests for draft public classes:
     { "libth", libth_test },
+#endif // FTY_SENSOR_ENV_BUILD_DRAFT_API
+#ifdef FTY_SENSOR_ENV_BUILD_DRAFT_API
+    { "private_classes", fty_sensor_env_private_selftest },
 #endif // FTY_SENSOR_ENV_BUILD_DRAFT_API
     {0, 0}          //  Sentinel
 };
@@ -104,7 +107,8 @@ main (int argc, char **argv)
         if (streq (argv [argn], "--list")
         ||  streq (argv [argn], "-l")) {
             puts ("Available tests:");
-            puts ("    libth\t- draft");
+            puts ("    libth\t\t- draft");
+            puts ("    private_classes\t- draft");
             return 0;
         }
         else
@@ -134,6 +138,12 @@ main (int argc, char **argv)
             return 1;
         }
     }
+
+    #ifdef NDEBUG
+        printf(" !!! 'assert' macro is disabled, remove NDEBUG from your compilation definitions.\n");
+        printf(" tests will be meaningless.\n");
+    #endif //
+
     if (test) {
         printf ("Running fty-sensor-env test '%s'...\n", test->testname);
         test->test (verbose);

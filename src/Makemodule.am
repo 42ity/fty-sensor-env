@@ -30,6 +30,11 @@ src_libfty_sensor_env_la_SOURCES += \
 
 endif
 
+if ENABLE_DRAFTS
+src_libfty_sensor_env_la_SOURCES += \
+    src/fty_sensor_env_private_selftest.cc
+endif
+
 src_libfty_sensor_env_la_CPPFLAGS = ${AM_CPPFLAGS}
 src_libfty_sensor_env_la_CXXFLAGS = ${AM_CXXFLAGS}
 
@@ -60,7 +65,7 @@ bin_PROGRAMS += src/fty-sensor-env
 src_fty_sensor_env_CPPFLAGS = ${AM_CPPFLAGS}
 src_fty_sensor_env_LDADD = ${program_libs}
 src_fty_sensor_env_SOURCES = src/fty_sensor_env.cc
-src_fty_sensor_env_config_DATA = src/fty-sensor-env.cfg
+src_fty_sensor_env_config_DATA =
 src_fty_sensor_env_configdir = $(sysconfdir)/fty-sensor-env
 if WITH_SYSTEMD_UNITS
 systemdsystemunit_DATA += src/fty-sensor-env.service

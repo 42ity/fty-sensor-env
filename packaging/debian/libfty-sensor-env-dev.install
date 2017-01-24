@@ -2,3 +2,4 @@ usr/include/*
 usr/lib/*/libfty_sensor_env.so
 usr/lib/*/pkgconfig/libfty_sensor_env.pc
 usr/share/man/man3/*
+usr/share/man/man7/*
