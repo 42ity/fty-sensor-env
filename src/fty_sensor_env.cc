@@ -379,7 +379,7 @@ main (int argc, char *argv []) {
                                         strlen(*what) + 5);
             assert (topic);
             sprintf(topic, agent.at, hostname.c_str ());
-            fty_proto_set_element_src (msg, "%s", topic);
+            fty_proto_set_name (msg, "%s", topic);
 
             sprintf(topic, agent.measurement, *what);
             fty_proto_set_type (msg, "%s", topic);
