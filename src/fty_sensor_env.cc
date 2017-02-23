@@ -59,6 +59,14 @@ char *vars[] = {
     NULL
 };
 
+// maps symbolic name to real device name!!
+std::map <std::string, std::string> devmap = {
+    {"/dev/ttySTH1", "/dev/ttyS9"},
+    {"/dev/ttySTH2", "/dev/ttyS10"},
+    {"/dev/ttySTH3", "/dev/ttyS11"},
+    {"/dev/ttySTH4", "/dev/ttyS12"}
+};
+
 struct sample_agent {
     const char* agent_name;   //!< Name of the measuring agent
     char **variants;          //!< Various sources to iterate over
@@ -94,15 +102,16 @@ get_measurement (char* what) {
     c_item data = { 0, false, 0, 0 }, *data_p = NULL;
     zsys_debug ("Measuring '%s'", what);
 
-    std::string path = "/dev/ttyS";
-    switch (th[2]) {
-       case '1': path +=  "9"; break;
-       case '2': path += "10"; break;
-       case '3': path += "11"; break;
-       case '4': path += "12"; break;
-    }
+    // translate /dev/ttySTH1 - TH4 to /dev/ttyS9 using devmap hash map
+    // defaults will simply work everywhere, for revision 00 code in main
+    // should deail with it nicelly
+    std::string tpath {"/dev/ttyS"};
+    tpath.append (th);
+    std::string path = devmap.at (tpath);
+
     zsys_debug ("Reading from '%s'", path.c_str());
     data.time = time(NULL);
+
     int fd = open_device(path.c_str());
     if(!device_connected(fd)) {
         if(fd > 0)
@@ -169,6 +178,21 @@ main (int argc, char *argv []) {
     std::string hostname = xhostname;
 
     bool have_rc3name = false;
+
+    // Phase 0 - init device real paths
+    zsys_info ("Phase 0 - init device real paths");
+
+    for (auto &it: devmap) {
+        char *patha = realpath (tpath.c_str (), NULL);
+        if (!patha) {
+            zsys_warning ("Can't get realpath of %s, using %s: %s", tpath.c_str (), it.second.c_str (), strerror (errno));
+            zstr_free (&patha);
+            continue;
+        }
+        std::string npath {patha};
+        devmap [it.first] = npath;
+        zstr_free (&patha);
+    }
 
     // Phase 1 - Get rack controller asset name
     zsys_info ("Phase 1 - Get rack controller asset name");
