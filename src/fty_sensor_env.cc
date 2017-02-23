@@ -183,9 +183,9 @@ main (int argc, char *argv []) {
     zsys_info ("Phase 0 - init device real paths");
 
     for (auto &it: devmap) {
-        char *patha = realpath (tpath.c_str (), NULL);
+        char *patha = realpath (it.first.c_str (), NULL);
         if (!patha) {
-            zsys_warning ("Can't get realpath of %s, using %s: %s", tpath.c_str (), it.second.c_str (), strerror (errno));
+            zsys_warning ("Can't get realpath of %s, using %s: %s", it.first.c_str (), it.second.c_str (), strerror (errno));
             zstr_free (&patha);
             continue;
         }
@@ -396,32 +396,47 @@ main (int argc, char *argv []) {
                 continue;
             }
 
-            // Prepare topic from templates
-            char* topic = (char*)malloc(strlen(agent.at) +
-                                        strlen(agent.measurement) +
-                                        hostname.size () +
-                                        strlen(*what) + 5);
-            assert (topic);
-            sprintf(topic, agent.at, hostname.c_str ());
-            fty_proto_set_name (msg, "%s", topic);
+/*
+--------------------------------------------------------------------------------
+stream=_METRICS_SENSOR
+sender=agent-th@IPC
+subject=temperature.TH1@IPC
+D: 17-02-23 14:29:12 BIOS_PROTO_METRIC:
+D: 17-02-23 14:29:12     aux=
+D: 17-02-23 14:29:12         port=TH1
+D: 17-02-23 14:29:12     type='temperature.TH1'
+D: 17-02-23 14:29:12     element_src='IPC'
+D: 17-02-23 14:29:12     value='24.16'
+D: 17-02-23 14:29:12     unit='C'
+D: 17-02-23 14:29:12     ttl=300
+--------------------------------------------------------------------------------
+*/            
+            fty_proto_set_name (msg, "%s", hostname.c_str ());
 
-            sprintf(topic, agent.measurement, *what);
-            fty_proto_set_type (msg, "%s", topic);
-            strcat(topic, "@");
-            sprintf(topic + strlen(topic), agent.at, hostname.c_str ());
-            zsys_debug("Sending new measurement '%s' with value '%s'", topic, fty_proto_value (msg));
+            // TODO: make some hashmap instead
+            // type="temperature./dev/sda10"
+            // port="/dev/sda10"
+            std::string type {*what};
+            auto dot_i = type.find ('.');
+            std::string port {"/dev/ttyS"};
+            port.append (type.substr (dot_i+1, 3));
+            type.replace (dot_i + 1, devmap [port].size (), devmap [port]);
 
+            fty_proto_set_type (msg, "%s", type.c_str ());
+
+            // subject temperature./dev/sda10@IPC
+            std::string subject {type};
+            type.append ("@").append (hostname);
 
             // Send it
             zmsg_t *to_send = fty_proto_encode (&msg);
-            rv = mlm_client_send (client, topic, &to_send);
+            rv = mlm_client_send (client, subject.c_str (), &to_send);
             if (rv != 0) {
-                zsys_error ("mlm_client_send (subject = '%s') failed", topic);
+                zsys_error ("mlm_client_send (subject = '%s') failed", subject.c_str ());
             }
 
             fty_proto_destroy (&msg);
             what++;
-            zstr_free (&topic);
         }
         if (zsys_interrupted) {
             zsys_warning ("interrupted ...  ");
