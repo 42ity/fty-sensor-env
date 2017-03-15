@@ -426,7 +426,7 @@ D: 17-02-23 14:29:12     ttl=300
 
             // subject temperature./dev/sda10@IPC
             std::string subject {type};
-            type.append ("@").append (hostname);
+            subject.append ("@").append (hostname);
 
             // Send it
             zmsg_t *to_send = fty_proto_encode (&msg);
