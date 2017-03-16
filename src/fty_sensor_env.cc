@@ -40,7 +40,7 @@ bool agent_th_verbose = false;
     do { if (agent_th_verbose) zsys_debug (__VA_ARGS__); } while (0);
 
 // temporary
-#define HOSTNAME_FILE "/var/lib/fty/composite-metrics/agent_th"
+#define HOSTNAME_FILE "/var/lib/fty/fty-sensor-env/agent_th"
 
 fty_proto_t*
 get_measurement (char* what);
@@ -198,7 +198,7 @@ main (int argc, char *argv []) {
     zsys_info ("Phase 1 - Get rack controller asset name");
 
     // Temporary workaround
-    // Try to read from /var/lib/fty/composite-metrics/agent_th
+    // Try to read from /var/lib/fty/fty-sensor-env/agent_th
     zsys_info ("Trying to read from '%s' if it exists", HOSTNAME_FILE);
 
     zfile_t *file = zfile_new (NULL, HOSTNAME_FILE);
@@ -300,7 +300,7 @@ main (int argc, char *argv []) {
                 zsys_info ("Received rc3 name '%s'", hostname.c_str ());
                 {
                     // Temporary workaround
-                    // Try to write to /var/lib/fty/composite-metrics/agent_th
+                    // Try to write to /var/lib/fty/fty-sensor-env/agent_th
 
                     zsys_info ("Trying to write to '%s'", HOSTNAME_FILE);
                     file = zfile_new (NULL, HOSTNAME_FILE);
