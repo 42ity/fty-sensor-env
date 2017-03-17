@@ -410,8 +410,9 @@ D: 17-02-23 14:29:12     value='24.16'
 D: 17-02-23 14:29:12     unit='C'
 D: 17-02-23 14:29:12     ttl=300
 --------------------------------------------------------------------------------
-*/            
+*/
             fty_proto_set_name (msg, "%s", hostname.c_str ());
+            fty_proto_set_time (msg, ::time (NULL));
 
             // TODO: make some hashmap instead
             // type="temperature./dev/sda10"
