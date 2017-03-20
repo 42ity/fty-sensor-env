@@ -12,7 +12,7 @@ Name: libfty_sensor_env
 Description: Grab temperature and humidity data from sensors attached to the box
 Version: @VERSION@
 
-Requires:@pkgconfig_name_libzmq@ @pkgconfig_name_libczmq@ @pkgconfig_name_libmlm@ @pkgconfig_name_libfty_proto@ >= 1.0.0
+Requires:@pkgconfig_name_libzmq@ @pkgconfig_name_libczmq@ >= 3.0.0 @pkgconfig_name_libmlm@ @pkgconfig_name_libfty_proto@ >= 1.0.0
 
 Libs: -L${libdir} -lfty_sensor_env
 Cflags: -I${includedir} @pkg_config_defines@
