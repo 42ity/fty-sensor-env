@@ -69,6 +69,9 @@ cmake_install.cmake
 compile_commands.json
 DartConfiguration.tcl
 install_manifest.txt
+builds/cmake/
+CMake*
+*.cmake
 Testing/
 
 # Repositories downloaded by CI integration scripts
