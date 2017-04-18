@@ -351,6 +351,10 @@ main (int argc, char *argv []) {
             }
             fty_proto_destroy (&asset);
         }
+        if (have_rc3id == false) {
+            zclock_sleep(POLLING_INTERVAL); // monitoring interval
+            continue;
+        }
 
         // Go through all the stuff we monitor
         char **what = agent.variants;
