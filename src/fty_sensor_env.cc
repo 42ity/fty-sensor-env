@@ -270,10 +270,7 @@ main (int argc, char *argv []) {
     if (fty_log_level && streq (fty_log_level, "LOG_DEBUG"))
         agent_th_verbose = true;
 
-    // Form ID from hostname and agent name
-    char xhostname[HOST_NAME_MAX];
-    gethostname(xhostname, HOST_NAME_MAX);
-    std::string hostname = xhostname;
+    std::string hostname;
 
     bool have_rc3id = false;
 
@@ -399,7 +396,7 @@ main (int argc, char *argv []) {
                 || streq (operation, FTY_PROTO_ASSET_OP_RETIRE))
                 && have_rc3id == true)
             {
-                hostname.assign (xhostname);
+                hostname.assign ("");
                 have_rc3id = false;
                 s_write_statefile (HOSTNAME_FILE, "");
             } 
