@@ -33,6 +33,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #define POLLING_INTERVAL            5000
 #define TIME_TO_LIVE                300
+#define AGENT_NAME                  "fty-sensor-env"
 
 // ### logging
 bool agent_th_verbose = false;
@@ -41,9 +42,6 @@ bool agent_th_verbose = false;
 
 // temporary
 #define HOSTNAME_FILE "/var/lib/fty/fty-sensor-env/agent_th"
-
-fty_proto_t*
-get_measurement (char* what);
 
 // strdup is to avoid -Werror=write-strings - not enough time to rewrite it properly
 // + it's going to be proprietary code ;-)
@@ -65,26 +63,6 @@ std::map <std::string, std::string> devmap = {
     {"/dev/ttySTH2", "/dev/ttyS10"},
     {"/dev/ttySTH3", "/dev/ttyS11"},
     {"/dev/ttySTH4", "/dev/ttyS12"}
-};
-
-struct sample_agent {
-    const char* agent_name;   //!< Name of the measuring agent
-    char **variants;          //!< Various sources to iterate over
-    const char* measurement;  /*!< Printf formated string for what are we
-                                   measuring, %s will be filled with source */
-    const char* at;           /*!< Printf formated string for where are we
-                                   measuring, %s will be filled with hostname */
-    int32_t diff;             /*!< Minimum difference required for publishing */
-    fty_proto_t* (*get_measurement)(char* what); //!< Measuring itself
-};
-
-sample_agent agent = {
-    "agent-th",
-    vars,
-    "%s",
-    "%s",
-    50,
-    get_measurement
 };
 
 struct c_item {
@@ -225,15 +203,14 @@ s_write_statefile (const std::string& filename, const std::string& rc3id)
 }
 
 static void
-read_sensors (mlm_client_t *client, sample_agent *agent, const char *hostname)
+read_sensors (mlm_client_t *client, const char *hostname)
 {
     assert (client);
-    assert (agent);
     assert (hostname);
-    char **what = agent->variants;
+    char **what = vars;
 
     while (what != NULL && *what != NULL) {
-        fty_proto_t* msg = agent->get_measurement (*what);
+        fty_proto_t* msg = get_measurement (*what);
         if (msg == NULL) {
             zclock_sleep (100);
             what++;
@@ -326,14 +303,13 @@ main (int argc, char *argv []) {
         zsys_debug ("mlm_client_set_verbose");
         mlm_client_set_verbose (client, true);
     }
-//    std::string id = std::string (agent.agent_name) + "@" + hostname;
 
-    int rv = mlm_client_connect (client, addr, 1000, agent.agent_name);
+    int rv = mlm_client_connect (client, addr, 1000, AGENT_NAME);
     if (rv == -1) {
         mlm_client_destroy (&client);
         zsys_error (
                 "mlm_client_connect (endpoint = '%s', timeout = '1000', address = '%s') failed",
-                addr, agent.agent_name);
+                addr, AGENT_NAME);
         return EXIT_FAILURE;
     }
     zsys_info ("Connected to '%s'", endpoint);
@@ -356,7 +332,7 @@ main (int argc, char *argv []) {
                 FTY_PROTO_STREAM_METRICS_SENSOR);
         return EXIT_FAILURE;
     }
-    zsys_info ("Publishing to '%s' as '%s'", FTY_PROTO_STREAM_METRICS_SENSOR, agent.agent_name);
+    zsys_info ("Publishing to '%s' as '%s'", FTY_PROTO_STREAM_METRICS_SENSOR, AGENT_NAME);
 
     zpoller_t *poller = zpoller_new (mlm_client_msgpipe (client), NULL);
     if (!poller) {
@@ -377,7 +353,7 @@ main (int argc, char *argv []) {
                 break;
             if (zpoller_expired (poller)) {
                 if (have_rc3id)
-                    read_sensors (client, &agent, hostname.c_str ());
+                    read_sensors (client, hostname.c_str ());
             }
             timestamp = (uint64_t) zclock_mono ();
             continue;
@@ -386,7 +362,7 @@ main (int argc, char *argv []) {
         uint64_t now = (uint64_t) zclock_mono ();
         if (now - timestamp >= timeout) {
             if (have_rc3id)
-                read_sensors (client, &agent, hostname.c_str ());
+                read_sensors (client, hostname.c_str ());
             timestamp = (uint64_t) zclock_mono ();
         }        
 
