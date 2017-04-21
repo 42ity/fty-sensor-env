@@ -326,14 +326,14 @@ main (int argc, char *argv []) {
         zsys_debug ("mlm_client_set_verbose");
         mlm_client_set_verbose (client, true);
     }
-    std::string id = std::string (agent.agent_name) + "@" + hostname;
+//    std::string id = std::string (agent.agent_name) + "@" + hostname;
 
-    int rv = mlm_client_connect (client, addr, 1000, id.c_str ());
+    int rv = mlm_client_connect (client, addr, 1000, agent.agent_name);
     if (rv == -1) {
         mlm_client_destroy (&client);
         zsys_error (
                 "mlm_client_connect (endpoint = '%s', timeout = '1000', address = '%s') failed",
-                addr, id.c_str ());
+                addr, agent.agent_name);
         return EXIT_FAILURE;
     }
     zsys_info ("Connected to '%s'", endpoint);
@@ -356,7 +356,7 @@ main (int argc, char *argv []) {
                 FTY_PROTO_STREAM_METRICS_SENSOR);
         return EXIT_FAILURE;
     }
-    zsys_info ("Publishing to '%s' as '%s'", FTY_PROTO_STREAM_METRICS_SENSOR, id.c_str());
+    zsys_info ("Publishing to '%s' as '%s'", FTY_PROTO_STREAM_METRICS_SENSOR, agent.agent_name);
 
     zpoller_t *poller = zpoller_new (mlm_client_msgpipe (client), NULL);
     if (!poller) {
@@ -369,6 +369,7 @@ main (int argc, char *argv []) {
     uint64_t timeout = (uint64_t) POLLING_INTERVAL;
 
     while (!zsys_interrupted) {
+        zsys_debug ("cycle ... ");
         void *which = zpoller_wait (poller, timeout);
 
         if (which == NULL) {
