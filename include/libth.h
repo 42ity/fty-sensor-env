@@ -37,13 +37,26 @@
 extern "C" {
 #endif
 
-FTY_SENSOR_ENV_EXPORT int open_device(const char* dev);
-FTY_SENSOR_ENV_EXPORT bool device_connected(int fd);
-FTY_SENSOR_ENV_EXPORT void reset_device(int fd);
-FTY_SENSOR_ENV_EXPORT int get_th_data(int fd, unsigned char what);
-FTY_SENSOR_ENV_EXPORT void compensate_humidity(int H, int T, int32_t* out);
-FTY_SENSOR_ENV_EXPORT void compensate_temp(int in, int32_t *out);
-FTY_SENSOR_ENV_EXPORT void libth_test (bool verbose);
+FTY_SENSOR_ENV_EXPORT int
+    open_device (const char* dev);
+
+FTY_SENSOR_ENV_EXPORT bool
+    device_connected (int fd);
+
+FTY_SENSOR_ENV_EXPORT void
+    reset_device (int fd);
+
+FTY_SENSOR_ENV_EXPORT int
+    get_th_data (int fd, unsigned char what);
+
+FTY_SENSOR_ENV_EXPORT void
+    compensate_humidity (int H, int T, int32_t* out);
+
+FTY_SENSOR_ENV_EXPORT void 
+    compensate_temp (int in, int32_t *out);
+
+FTY_SENSOR_ENV_EXPORT void 
+    libth_test (bool verbose);
 
 //  @interface
 //  @end
