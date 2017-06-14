@@ -1,5 +1,5 @@
 /*  =========================================================================
-    agent-th - Grab temperature and humidity data from some-sensor
+    fty-sensor-env - Grab temperature and humidity data from some-sensor
 
     Copyright (C) 2014 - 2017 Eaton
 

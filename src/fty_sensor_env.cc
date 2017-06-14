@@ -17,7 +17,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 */
 
 /*!
- * \file agent-th.cc
+ * \file fty_sensor_env.cc
  * \author Michal Hrusecky <MichalHrusecky@Eaton.com>
  * \author Tomas Halman <TomasHalman@Eaton.com>
  * \author Jim Klimov <EvgenyKlimov@Eaton.com>
