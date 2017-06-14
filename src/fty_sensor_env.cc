@@ -171,7 +171,7 @@ s_read_statefile (const std::string& filename, std::string& rc3id)
     return true;
 }
 
-static void 
+static void
 s_write_statefile (const std::string& filename, const std::string& rc3id)
 {
     zsys_info ("Writing RC3 id '%s' to state file '%s'", rc3id.c_str (), filename.c_str ());
@@ -266,7 +266,7 @@ main (int argc, char *argv []) {
 
     const char *endpoint = "ipc://@/malamute";
     const char *addr = (argc == 1) ? "ipc://@/malamute" : argv[1];
-    char *fty_log_level = getenv ("FTY_LOG_LEVEL");
+    char *fty_log_level = getenv ("BIOS_LOG_LEVEL");
     if (fty_log_level && streq (fty_log_level, "LOG_DEBUG"))
         agent_th_verbose = true;
 
@@ -361,7 +361,7 @@ main (int argc, char *argv []) {
             if (have_rc3id)
                 read_sensors (client, hostname.c_str ());
             timestamp = (uint64_t) zclock_mono ();
-        }        
+        }
 
         zmsg_t *message = mlm_client_recv (client);
         if (!message)
@@ -380,7 +380,9 @@ main (int argc, char *argv []) {
         zsys_info ("Received an asset message, operation = '%s', name = '%s', type = '%s', subtype = '%s'",
                 operation, name, type, subtype);
 
-        if (streq (type, "device") && streq (subtype, "rack controller")) {
+        if (streq (type, "device") &&
+            (streq (subtype, "rack controller") || streq (subtype, "rackcontroller" )) )
+        {
             if ((streq (operation, FTY_PROTO_ASSET_OP_CREATE)
                 || streq (operation, FTY_PROTO_ASSET_OP_UPDATE))
                 && have_rc3id == false)
@@ -399,7 +401,7 @@ main (int argc, char *argv []) {
                 hostname.assign ("");
                 have_rc3id = false;
                 s_write_statefile (HOSTNAME_FILE, "");
-            } 
+            }
         }
         fty_proto_destroy (&asset);
     }
