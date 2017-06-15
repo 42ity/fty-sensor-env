@@ -1,4 +1,4 @@
-# agent-th
+# fty-sensor-env
 
 Component sending temperature and humidity data from RackController's sensors
 connected to "TH" ports

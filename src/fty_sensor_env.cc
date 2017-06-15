@@ -17,7 +17,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 */
 
 /*!
- * \file agent-th.cc
+ * \file fty_sensor_env.cc
  * \author Michal Hrusecky <MichalHrusecky@Eaton.com>
  * \author Tomas Halman <TomasHalman@Eaton.com>
  * \author Jim Klimov <EvgenyKlimov@Eaton.com>
@@ -41,7 +41,7 @@ bool agent_th_verbose = false;
     do { if (agent_th_verbose) zsys_debug (__VA_ARGS__); } while (0);
 
 // temporary
-#define HOSTNAME_FILE "/var/lib/fty/fty-sensor-env/agent_th"
+#define HOSTNAME_FILE "/var/lib/fty/fty-sensor-env/state"
 
 // strdup is to avoid -Werror=write-strings - not enough time to rewrite it properly
 // + it's going to be proprietary code ;-)
