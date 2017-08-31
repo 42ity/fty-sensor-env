@@ -32,6 +32,10 @@
 #define MEASURE_HUMI 0x05    //000   0010    1
 #define RESET        0x1e    //000   1111    0
 
+#define GPI_PORT1_BITSHIFT  8
+#define GPI_PORT2_BITSHIFT  6
+#define GPI_PORT1_MASK      1 << GPI_PORT1_BITSHIFT
+#define GPI_PORT2_MASK      1 << GPI_PORT2_BITSHIFT
 
 #ifdef __cplusplus
 extern "C" {
@@ -57,6 +61,9 @@ FTY_SENSOR_ENV_EXPORT void
 
 FTY_SENSOR_ENV_EXPORT void 
     libth_test (bool verbose);
+
+FTY_SENSOR_ENV_EXPORT int
+    read_gpi(int fd, char port);
 
 //  @interface
 //  @end

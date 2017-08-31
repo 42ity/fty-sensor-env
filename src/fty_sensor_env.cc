@@ -25,6 +25,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
  */
 
 #include "../include/fty_sensor_env_library.h"
+#include "../include/fty_sensor_env.h"
 
 #include <vector>
 #include <map>
@@ -46,14 +47,22 @@ bool agent_th_verbose = false;
 // strdup is to avoid -Werror=write-strings - not enough time to rewrite it properly
 // + it's going to be proprietary code ;-)
 char *vars[] = {
-    strdup ("temperature.TH1"),
-    strdup ("humidity.TH1"),
-    strdup ("temperature.TH2"),
-    strdup ("humidity.TH2"),
-    strdup ("temperature.TH3"),
-    strdup ("humidity.TH3"),
-    strdup ("temperature.TH4"),
-    strdup ("humidity.TH4"),
+    strdup (TEMPERATURE TH1),
+    strdup (HUMIDITY TH1),
+    strdup (STATUSGPI1 TH1),
+    strdup (STATUSGPI2 TH1),
+    strdup (TEMPERATURE TH2),
+    strdup (HUMIDITY TH2),
+    strdup (STATUSGPI1 TH2),
+    strdup (STATUSGPI2 TH2),
+    strdup (TEMPERATURE TH3),
+    strdup (HUMIDITY TH3),
+    strdup (STATUSGPI1 TH3),
+    strdup (STATUSGPI2 TH3),
+    strdup (TEMPERATURE TH4),
+    strdup (HUMIDITY TH4),
+    strdup (STATUSGPI1 TH4),
+    strdup (STATUSGPI2 TH4),
     NULL
 };
 
@@ -75,7 +84,9 @@ struct c_item {
 fty_proto_t*
 get_measurement (char* what) {
 
-    fty_proto_t* ret = NULL;
+    fty_proto_t* ret = fty_proto_new (FTY_PROTO_METRIC);
+    zhash_t *aux = zhash_new ();
+    zhash_autofree (aux);
     char *th = strdup(what + (strlen(what) - 3));
     c_item data = { 0, false, 0, 0 }, *data_p = NULL;
     zsys_debug ("Measuring '%s'", what);
@@ -99,42 +110,59 @@ get_measurement (char* what) {
     }
     else {
         reset_device(fd);
-        data.T = get_th_data(fd, MEASURE_TEMP);
-        data.H = get_th_data(fd, MEASURE_HUMI);
-        compensate_temp(data.T, &data.T);
-        compensate_humidity(data.H, data.T, &data.H);
+        if (0 == strncmp(TEMPERATURE, what, strlen(TEMPERATURE))) {
+            data.T = get_th_data(fd, MEASURE_TEMP);
+            compensate_temp(data.T, &data.T);
+            zsys_debug("Got data from sensor '%s' - T = %" PRId32 ".%02" PRId32 " C", th, data.T/100, data.T%100);
+
+            fty_proto_set_value (ret, "%.2f", data.T / (float) 100);
+            fty_proto_set_unit (ret, "%s", "C");
+            fty_proto_set_ttl (ret, TIME_TO_LIVE);
+
+            zsys_debug ("Returning T = %s C", fty_proto_value (ret));
+        } else if (0 == strncmp(HUMIDITY, what, strlen(HUMIDITY))) {
+            data.T = get_th_data(fd, MEASURE_TEMP);
+            data.H = get_th_data(fd, MEASURE_HUMI);
+            compensate_humidity(data.H, data.T, &data.H);
+            zsys_debug("Got data from sensor '%s' - H = %" PRId32 ".%02" PRId32 " %%", th, data.T/100, data.T%100,
+                    data.H/100, data.H%100);
+
+            fty_proto_set_value (ret, "%.2f", data.H / (float) 100);
+            fty_proto_set_unit (ret, "%s", "%");
+            fty_proto_set_ttl (ret, TIME_TO_LIVE);
+
+            zsys_debug ("Returning H = %s %%", fty_proto_value (ret));
+        } else if (0 == strncmp(STATUSGPIX, what, strlen(STATUSGPIX))) {
+            // read GPI from sensor - expect ports in range 1-9
+            char *where = what + strlen(STATUSGPIX);
+            char gpi_port = *where - '0';
+            int gpi = read_gpi(fd, gpi_port);
+
+            fty_proto_set_value (ret, "%d", gpi);
+            fty_proto_set_unit (ret, "%s", "");
+            fty_proto_set_ttl (ret, TIME_TO_LIVE);
+            zhash_insert (aux, "ext-port", where);
+
+            zsys_debug ("Returning H = %s", fty_proto_value (ret));
+        } else {
+            free(th);
+            fty_proto_destroy (&ret);
+            close(fd);
+            zhash_destroy (&self->aux);
+            return NULL;
+        }
         close(fd);
-        zsys_debug("Got data from sensor '%s' - T = %" PRId32 ".%02" PRId32 " C,"
-                                            "H = %" PRId32 ".%02" PRId32 " %%",
-                  th, data.T/100, data.T%100, data.H/100, data.H%100);
         data_p = &data;
         data.broken = false;
     }
 
     if ((data_p == NULL) || data_p->broken) {
         free(th);
+        fty_proto_destroy (&ret);
+        zhash_destroy (&self->aux);
         return NULL;
     }
 
-    // Formulate a response
-    if (what[0] == 't') {
-        ret = fty_proto_new (FTY_PROTO_METRIC);
-        fty_proto_set_value (ret, "%.2f", data_p->T / (float) 100);
-        fty_proto_set_unit (ret, "%s", "C");
-        fty_proto_set_ttl (ret, TIME_TO_LIVE);
-
-        zsys_debug ("Returning T = %s C", fty_proto_value (ret));
-    }
-    else {
-        ret = fty_proto_new (FTY_PROTO_METRIC);
-        fty_proto_set_value (ret, "%.2f", data_p->H / (float) 100);
-        fty_proto_set_unit (ret, "%s", "%");
-        fty_proto_set_ttl (ret, TIME_TO_LIVE);
-
-        zsys_debug ("Returning H = %s %%", fty_proto_value (ret));
-    }
-    zhash_t *aux = zhash_new ();
-    zhash_autofree (aux);
     zhash_insert (aux, "port", th);
     fty_proto_set_aux (ret, &aux);
     free(th);
@@ -238,7 +266,7 @@ D: 17-02-23 14:29:12     ttl=300
         // type="temperature./dev/sda10"
         // port="/dev/sda10"
         std::string type {*what};
-        auto dot_i = type.find ('.');
+        auto dot_i = type.find_last_of ('.');
         std::string port {"/dev/ttyS"};
         port.append (type.substr (dot_i+1, 3));
         type.replace (dot_i + 1, devmap [port].size (), devmap [port]);

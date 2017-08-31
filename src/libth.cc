@@ -184,6 +184,26 @@ int write_byte(int fd, unsigned char val) {
     return err;
 }
 
+int read_gpi(int fd, char port) {
+    int ret = 0;
+    if(fd < 0)
+        return -1;
+
+    set_tx(fd, 1);
+    msleep(1);
+    ioctl(fd, TIOCMGET, &ret);
+    if (1 == port) {
+        ret &= GPI_PORT1_MASK;
+        ret >>= GPI_PORT1_BITSHIFT;
+    } else if (2 == port) {
+        ret &= GPI_PORT2_MASK;
+        ret >>= GPI_PORT2_BITSHIFT;
+    } else {
+        ret = -1;
+    }
+    return ret;
+}
+
 int get_th_data(int fd, unsigned char what) {
     unsigned char tmp[2];
     unsigned char crc;
