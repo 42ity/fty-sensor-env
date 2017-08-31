@@ -147,7 +147,7 @@ get_measurement (char* what) {
             free(th);
             fty_proto_destroy (&ret);
             close(fd);
-            zhash_destroy (aux);
+            zhash_destroy (&aux);
             return NULL;
         }
         close(fd);
@@ -158,7 +158,7 @@ get_measurement (char* what) {
     if ((data_p == NULL) || data_p->broken) {
         free(th);
         fty_proto_destroy (&ret);
-        zhash_destroy (aux);
+        zhash_destroy (&aux);
         return NULL;
     }
 
