@@ -27,7 +27,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "../include/fty_sensor_env_library.h"
 #include "../include/fty_sensor_env.h"
 
-#include <vector>
 #include <map>
 #include <string>
 #include <cmath>
@@ -148,7 +147,7 @@ get_measurement (char* what) {
             free(th);
             fty_proto_destroy (&ret);
             close(fd);
-            zhash_destroy (&self->aux);
+            zhash_destroy (aux);
             return NULL;
         }
         close(fd);
@@ -159,7 +158,7 @@ get_measurement (char* what) {
     if ((data_p == NULL) || data_p->broken) {
         free(th);
         fty_proto_destroy (&ret);
-        zhash_destroy (&self->aux);
+        zhash_destroy (aux);
         return NULL;
     }
 
