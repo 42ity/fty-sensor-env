@@ -63,7 +63,7 @@ FTY_SENSOR_ENV_EXPORT void
     libth_test (bool verbose);
 
 FTY_SENSOR_ENV_EXPORT int
-    read_gpi(int fd, char port);
+    read_gpi(int fd, int port);
 
 //  @interface
 //  @end

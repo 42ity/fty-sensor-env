@@ -184,7 +184,7 @@ int write_byte(int fd, unsigned char val) {
     return err;
 }
 
-int read_gpi(int fd, char port) {
+int read_gpi(int fd, int port) {
     int ret = 0;
     if(fd < 0)
         return -1;

@@ -29,7 +29,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <map>
 #include <string>
-#include <cmath>
 
 #define POLLING_INTERVAL            5000
 #define TIME_TO_LIVE                300
@@ -132,12 +131,17 @@ get_measurement (char* what) {
 
             zsys_debug ("Returning H = %s %%", fty_proto_value (ret));
         } else if (0 == strncmp(STATUSGPIX, what, strlen(STATUSGPIX))) {
-            // read GPI from sensor - expect ports in range 1-9
             char *where = what + strlen(STATUSGPIX);
-            char gpi_port = *where - '0';
+            int gpi_port = atoi(where);
             int gpi = read_gpi(fd, gpi_port);
 
-            fty_proto_set_value (ret, "%d", gpi);
+            if (0 == gpi) {
+                fty_proto_set_value (ret, "opened");
+            } else if (1 == gpi) {
+                fty_proto_set_value (ret, "closed");
+            } else {
+                fty_proto_set_value (ret, "invalid");
+            }
             fty_proto_set_unit (ret, "%s", "");
             fty_proto_set_ttl (ret, TIME_TO_LIVE);
             zhash_insert (aux, "ext-port", where);

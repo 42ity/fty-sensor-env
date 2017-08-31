@@ -29,7 +29,6 @@
 #define TEMPERATURE "temperature"
 #define HUMIDITY    "humidity"
 #define STATUSGPIX  "status.GPI"
-// Code expects ports to be in range 1-9, would need some updates when port range changes
 #define STATUSGPI1  STATUSGPIX "1"
 #define STATUSGPI2  STATUSGPIX "2"
 #define TH1         ".TH1"
