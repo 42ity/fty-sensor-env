@@ -26,5 +26,15 @@
 #include "fty_sensor_env_library.h"
 
 //  Add your own public definitions here, if you need them
+#define TEMPERATURE "temperature"
+#define HUMIDITY    "humidity"
+#define STATUSGPIX  "status.GPI"
+#define STATUSGPI1  STATUSGPIX "1"
+#define STATUSGPI2  STATUSGPIX "2"
+#define TH1         ".TH1"
+#define TH2         ".TH2"
+#define TH3         ".TH3"
+#define TH4         ".TH4"
+
 
 #endif
