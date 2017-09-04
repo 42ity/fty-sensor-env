@@ -26,15 +26,16 @@
 #include "fty_sensor_env_library.h"
 
 //  Add your own public definitions here, if you need them
-#define TEMPERATURE "temperature"
-#define HUMIDITY    "humidity"
-#define STATUSGPIX  "status.GPI"
-#define STATUSGPI1  STATUSGPIX "1"
-#define STATUSGPI2  STATUSGPIX "2"
-#define TH1         ".TH1"
-#define TH2         ".TH2"
-#define TH3         ".TH3"
-#define TH4         ".TH4"
+#define DISABLED        0
+// temperature and humidity have negative values not to clash with GPI port range
+#define TEMPERATURE     (char)-1
+#define HUMIDITY        (char)-2
+#define TEMPERATURE_STR "temperature"
+#define HUMIDITY_STR    "humidity"
+#define STATUSGPI_STR   "status.GPI"
+#define TH              "TH"
+#define VALID           1
+#define INVALID         0
 
 
 #endif
