@@ -21,120 +21,122 @@ with this program; if not, write to the Free Software Foundation, Inc.,
  * \author Michal Hrusecky <MichalHrusecky@Eaton.com>
  * \author Tomas Halman <TomasHalman@Eaton.com>
  * \author Jim Klimov <EvgenyKlimov@Eaton.com>
+ * \author Jiri Kukacka <JiriKukacka@Eaton.com>
  * \brief Not yet documented file
  */
 
 #include "../include/fty_sensor_env_library.h"
 #include "../include/fty_sensor_env.h"
 
-#include <map>
-#include <string>
-
+#define PORTS_OFFSET                9   // ports range 9-12
 #define POLLING_INTERVAL            5000
 #define TIME_TO_LIVE                300
 #define AGENT_NAME                  "fty-sensor-env"
 
 // ### logging
-bool agent_th_verbose = false;
+int agent_th_verbose = 0;
 #define zsys_debug(...) \
     do { if (agent_th_verbose) zsys_debug (__VA_ARGS__); } while (0);
 
-// temporary
-#define HOSTNAME_FILE "/var/lib/fty/fty-sensor-env/state"
-
-// strdup is to avoid -Werror=write-strings - not enough time to rewrite it properly
-// + it's going to be proprietary code ;-)
-char *vars[] = {
-    strdup (TEMPERATURE TH1),
-    strdup (HUMIDITY TH1),
-    strdup (STATUSGPI1 TH1),
-    strdup (STATUSGPI2 TH1),
-    strdup (TEMPERATURE TH2),
-    strdup (HUMIDITY TH2),
-    strdup (STATUSGPI1 TH2),
-    strdup (STATUSGPI2 TH2),
-    strdup (TEMPERATURE TH3),
-    strdup (HUMIDITY TH3),
-    strdup (STATUSGPI1 TH3),
-    strdup (STATUSGPI2 TH3),
-    strdup (TEMPERATURE TH4),
-    strdup (HUMIDITY TH4),
-    strdup (STATUSGPI1 TH4),
-    strdup (STATUSGPI2 TH4),
-    NULL
-};
-
-// maps symbolic name to real device name!!
-std::map <std::string, std::string> devmap = {
-    {"/dev/ttySTH1", "/dev/ttyS9"},
-    {"/dev/ttySTH2", "/dev/ttyS10"},
-    {"/dev/ttySTH3", "/dev/ttyS11"},
-    {"/dev/ttySTH4", "/dev/ttyS12"}
-};
+#define PORTMAP_LENGTH 4
+const char *portmapping[2][PORTMAP_LENGTH] = {
+        { "/dev/ttySTH1", "/dev/ttySTH2", "/dev/ttySTH3", "/dev/ttySTH4" },
+        { "/dev/ttyS9",   "/dev/ttyS10",  "/dev/ttyS11",  "/dev/ttyS12"  } };
 
 struct c_item {
-    time_t time;
-    bool broken;
     int32_t T;
     int32_t H;
 };
 
+typedef struct _ext_sensor {
+    char    *iname;
+    char    *rack_iname;
+    char    *port;
+    char    temperature;
+    char    humidity;
+    zhash_t *gpi;
+    char    valid;
+} external_sensor_t;
+
+static void freefn(void *sensorgpi)
+{
+    if (sensorgpi) free(sensorgpi);
+}
+
+external_sensor_t *search_sensor(zlist_t *sensor_list, const char *iname) {
+    external_sensor_t *sensor = (external_sensor_t *) zlist_first(sensor_list);
+    while (sensor) {
+        if (0 == strcmp(sensor->iname, iname)) {
+            break;
+        }
+        sensor = (external_sensor_t *) zlist_next(sensor_list);
+    }
+    return sensor;
+}
+
+external_sensor_t *create_sensor(const char *name, const char temperature, const char humidity, const char valid) {
+    external_sensor_t *sensor = (external_sensor_t *) malloc(sizeof(external_sensor_t));
+    if (!sensor) return NULL;
+    sensor->iname = strdup(name);
+    sensor->rack_iname = NULL;
+    sensor->port = NULL;
+    sensor->temperature = temperature;
+    sensor->humidity = humidity;
+    sensor->gpi = zhash_new();
+    zhash_autofree(sensor->gpi);
+    sensor->valid = valid;
+    return sensor;
+}
+
+void free_sensor(external_sensor_t **sensor) {
+    if ((*sensor)->iname) free((*sensor)->iname);
+    if ((*sensor)->rack_iname) free((*sensor)->rack_iname);
+    if ((*sensor)->port) free((*sensor)->port);
+    zhash_destroy(&((*sensor)->gpi));
+    free(*sensor);
+    sensor = NULL;
+}
+
 fty_proto_t*
-get_measurement (char* what) {
-
+get_measurement (const char what, const char *port_file) {
+    if (DISABLED == what) {
+        return NULL;
+    }
     fty_proto_t* ret = fty_proto_new (FTY_PROTO_METRIC);
-    zhash_t *aux = zhash_new ();
-    zhash_autofree (aux);
-    char *th = strdup(what + (strlen(what) - 3));
-    c_item data = { 0, false, 0, 0 }, *data_p = NULL;
-    zsys_debug ("Measuring '%s'", what);
+    c_item data = { 0, 0 };
 
-    // translate /dev/ttySTH1 - TH4 to /dev/ttyS9 using devmap hash map
-    // defaults will simply work everywhere, for revision 00 code in main
-    // should deail with it nicelly
-    std::string tpath {"/dev/ttyS"};
-    tpath.append (th);
-    std::string path = devmap.at (tpath);
-
-    zsys_debug ("Reading from '%s'", path.c_str());
-    data.time = time(NULL);
-
-    int fd = open_device(path.c_str());
+    int fd = open_device(port_file);
     if(!device_connected(fd)) {
         if(fd > 0)
             close(fd);
-        zsys_debug("No sensor attached to %s", path.c_str());
-        data.broken = true;
+        zsys_debug("No sensor attached to %s", port_file);
+        fty_proto_destroy (&ret);
+        return NULL;
     }
     else {
         reset_device(fd);
-        if (0 == strncmp(TEMPERATURE, what, strlen(TEMPERATURE))) {
+        if (TEMPERATURE == what) {
             data.T = get_th_data(fd, MEASURE_TEMP);
             compensate_temp(data.T, &data.T);
-            zsys_debug("Got data from sensor '%s' - T = %" PRId32 ".%02" PRId32 " C", th, data.T/100, data.T%100);
+            zsys_debug("Got data from sensor '%s' - T = %" PRId32 ".%02" PRId32 " C", port_file, data.T/100, data.T%100);
 
             fty_proto_set_value (ret, "%.2f", data.T / (float) 100);
             fty_proto_set_unit (ret, "%s", "C");
-            fty_proto_set_ttl (ret, TIME_TO_LIVE);
 
             zsys_debug ("Returning T = %s C", fty_proto_value (ret));
-        } else if (0 == strncmp(HUMIDITY, what, strlen(HUMIDITY))) {
+        } else if (HUMIDITY == what) {
             data.T = get_th_data(fd, MEASURE_TEMP);
             data.H = get_th_data(fd, MEASURE_HUMI);
             compensate_humidity(data.H, data.T, &data.H);
-            zsys_debug("Got data from sensor '%s' - H = %" PRId32 ".%02" PRId32 " %%", th, data.T/100, data.T%100,
-                    data.H/100, data.H%100);
+            zsys_debug("Got data from sensor '%s' - H = %" PRId32 ".%02" PRId32 " %%", port_file, data.H/100, data.H%100);
 
             fty_proto_set_value (ret, "%.2f", data.H / (float) 100);
             fty_proto_set_unit (ret, "%s", "%");
-            fty_proto_set_ttl (ret, TIME_TO_LIVE);
 
             zsys_debug ("Returning H = %s %%", fty_proto_value (ret));
-        } else if (0 == strncmp(STATUSGPIX, what, strlen(STATUSGPIX))) {
-            char *where = what + strlen(STATUSGPIX);
-            int gpi_port = atoi(where);
-            int gpi = read_gpi(fd, gpi_port);
-
+        } else {
+            // port number expected
+            int gpi = read_gpi(fd, what);
             if (0 == gpi) {
                 fty_proto_set_value (ret, "opened");
             } else if (1 == gpi) {
@@ -143,152 +145,74 @@ get_measurement (char* what) {
                 fty_proto_set_value (ret, "invalid");
             }
             fty_proto_set_unit (ret, "%s", "");
-            fty_proto_set_ttl (ret, TIME_TO_LIVE);
-            zhash_insert (aux, "ext-port", where);
 
-            zsys_debug ("Returning H = %s", fty_proto_value (ret));
-        } else {
-            free(th);
-            fty_proto_destroy (&ret);
-            close(fd);
-            zhash_destroy (&aux);
-            return NULL;
+            zsys_debug ("Returning S = %s", fty_proto_value (ret));
         }
         close(fd);
-        data_p = &data;
-        data.broken = false;
     }
-
-    if ((data_p == NULL) || data_p->broken) {
-        free(th);
-        fty_proto_destroy (&ret);
-        zhash_destroy (&aux);
-        return NULL;
-    }
-
-    zhash_insert (aux, "port", th);
-    fty_proto_set_aux (ret, &aux);
-    free(th);
     return ret;
 }
 
-static bool
-s_read_statefile (const std::string& filename, std::string& rc3id)
-{
-    zsys_info ("Reading RC3 id from state file '%s'.", filename.c_str ());
-    zfile_t *file = zfile_new (NULL, filename.c_str ());
-    if (!file) {
-        zsys_error ("zfile_new (path = 'NULL', name = '%s')", filename.c_str ());
-        return false;
+static void send_message(mlm_client_t *client, fty_proto_t *msg, const external_sensor_t *sensor,
+        const char *type, const char *sname, const char *ext_port) {
+    if (msg == NULL) {
+        return;
     }
-    if (zfile_input (file) != 0) {
-        zfile_destroy (&file);
-        zsys_warning ("State file '%s' not found or not accessible.", filename.c_str ());
-        return false;
+    fty_proto_set_ttl(msg, TIME_TO_LIVE);
+    fty_proto_set_name(msg, "%s", sensor->rack_iname);
+    fty_proto_set_time(msg, time (NULL));
+    fty_proto_set_type(msg, "%s", type);
+    zhash_t *aux = zhash_new();
+    zhash_autofree (aux);
+    if (ext_port) {
+        zhash_insert (aux, "ext-port", (char *)ext_port);
     }
-    zsys_info ("State file '%s' exists and is accessible.", filename.c_str ());
-    const char *temp = zfile_readln (file);
-    if (!temp) {
-        zfile_close (file);
-        zfile_destroy (&file);
-        zsys_warning ("State file '%s' is empty.", filename.c_str ());
-        return false;
+    zhash_insert(aux, "sname", (char *)sname);
+    zhash_insert(aux, "port", sensor->port);
+    fty_proto_set_aux(msg, &aux);
+    char *subject = zsys_sprintf("%s@%s", type, sensor->rack_iname);
+    zmsg_t *to_send = fty_proto_encode (&msg);
+    int rv = mlm_client_send (client, subject, &to_send);
+    if (rv != 0) {
+        zsys_error ("mlm_client_send (subject = '%s') failed", subject);
     }
-    rc3id.assign (temp);
-    zsys_info ("RC3 id read from state file == '%s'.", rc3id.c_str ());
-
-    zfile_close (file);
-    zfile_destroy (&file);
-    return true;
+    zstr_free(&subject);
+    fty_proto_destroy (&msg);
 }
 
 static void
-s_write_statefile (const std::string& filename, const std::string& rc3id)
-{
-    zsys_info ("Writing RC3 id '%s' to state file '%s'", rc3id.c_str (), filename.c_str ());
-    zfile_t *file = zfile_new (NULL, filename.c_str ());
-    if (!file) {
-        zsys_error ("zfile_new (path = 'NULL', name = '%s')", filename.c_str ());
-        return;
-    }
-
-    zfile_remove (file);
-
-    if (zfile_output (file) != 0) {
-        zfile_destroy (&file);
-        zsys_warning ("State file '%s' not found or not writable.", filename.c_str ());
-        return;
-    }
-
-    zchunk_t *chunk = zchunk_new ((const void *) rc3id.c_str (), rc3id.size ());
-    int rv = zfile_write (file, chunk, (off_t) 0);
-    if (rv != 0)
-        zsys_error ("Error writing to state file '%s'.", filename.c_str ());
-    else
-        zsys_info ("Writing RC3 id '%s' to state file '%s' successfull.", rc3id.c_str (), filename.c_str ());
-    zchunk_destroy (&chunk);
-
-    zfile_close (file);
-    zfile_destroy (&file);
-    return;
-}
-
-static void
-read_sensors (mlm_client_t *client, const char *hostname)
+read_sensors (mlm_client_t *client, zlist_t *my_sensors, zhash_t *portmap)
 {
     assert (client);
-    assert (hostname);
-    char **what = vars;
-
-    while (what != NULL && *what != NULL) {
-        fty_proto_t* msg = get_measurement (*what);
-        if (msg == NULL) {
-            zclock_sleep (100);
-            what++;
-            continue;
+    external_sensor_t *sensor = (external_sensor_t *) zlist_first(my_sensors);
+    while (NULL != sensor) {
+        const char *port_file = (char *) zhash_lookup(portmap, sensor->port);
+        zsys_debug ("Measuring '%s%s'", TH, sensor->port);
+        zsys_debug ("Reading from '%s'", port_file);
+        fty_proto_t* msg = get_measurement(TEMPERATURE, port_file);
+        if (msg) {
+            char *type = zsys_sprintf("%s.%s", TEMPERATURE_STR, port_file);
+            send_message(client, msg, sensor, type, sensor->iname, NULL);
+            zstr_free(&type);
         }
-/*
---------------------------------------------------------------------------------
-stream=_METRICS_SENSOR
-sender=agent-th@IPC
-subject=temperature.TH1@IPC
-D: 17-02-23 14:29:12 BIOS_PROTO_METRIC:
-D: 17-02-23 14:29:12     aux=
-D: 17-02-23 14:29:12         port=TH1
-D: 17-02-23 14:29:12     type='temperature.TH1'
-D: 17-02-23 14:29:12     element_src='IPC'
-D: 17-02-23 14:29:12     value='24.16'
-D: 17-02-23 14:29:12     unit='C'
-D: 17-02-23 14:29:12     ttl=300
---------------------------------------------------------------------------------
-*/
-        fty_proto_set_name (msg, "%s", hostname);
-        fty_proto_set_time (msg, ::time (NULL));
-
-        // TODO: make some hashmap instead
-        // type="temperature./dev/sda10"
-        // port="/dev/sda10"
-        std::string type {*what};
-        auto dot_i = type.find_last_of ('.');
-        std::string port {"/dev/ttyS"};
-        port.append (type.substr (dot_i+1, 3));
-        type.replace (dot_i + 1, devmap [port].size (), devmap [port]);
-
-        fty_proto_set_type (msg, "%s", type.c_str ());
-
-        // subject temperature./dev/sda10@IPC
-        std::string subject {type};
-        subject.append ("@").append (hostname);
-
-        // Send it
-        zmsg_t *to_send = fty_proto_encode (&msg);
-        int rv = mlm_client_send (client, subject.c_str (), &to_send);
-        if (rv != 0) {
-            zsys_error ("mlm_client_send (subject = '%s') failed", subject.c_str ());
+        msg = get_measurement(HUMIDITY, port_file);
+        if (msg) {
+            char *type = zsys_sprintf("%s.%s", HUMIDITY_STR, port_file);
+            send_message(client, msg, sensor, type, sensor->iname, NULL);
+            zstr_free(&type);
         }
-
-        fty_proto_destroy (&msg);
-        what++;
+        char *sensor_gpi_port = (char *) zhash_first(sensor->gpi);
+        while (sensor_gpi_port) {
+            int sensor_gpi_port_num = atoi(sensor_gpi_port);
+            msg = get_measurement(sensor_gpi_port_num, port_file);
+            if (msg) {
+                char *type = zsys_sprintf("%s%s.%s", STATUSGPI_STR, sensor_gpi_port, port_file);
+                send_message(client, msg, sensor, type, (char *) zhash_cursor(sensor->gpi), sensor_gpi_port);
+                zstr_free(&type);
+            }
+            sensor_gpi_port = (char *) zhash_next(sensor->gpi);
+        }
+        sensor = (external_sensor_t *) zlist_next(my_sensors);
     }
 }
 
@@ -297,29 +221,10 @@ main (int argc, char *argv []) {
 
     const char *endpoint = "ipc://@/malamute";
     const char *addr = (argc == 1) ? "ipc://@/malamute" : argv[1];
+    int i;
     char *fty_log_level = getenv ("BIOS_LOG_LEVEL");
     if (fty_log_level && streq (fty_log_level, "LOG_DEBUG"))
-        agent_th_verbose = true;
-
-    std::string hostname;
-
-    bool have_rc3id = false;
-
-    zsys_info ("Initializing device real paths.");
-    for (auto &it: devmap) {
-        char *patha = realpath (it.first.c_str (), NULL);
-        if (!patha) {
-            zsys_warning ("Can't get realpath of %s, using %s: %s", it.first.c_str (), it.second.c_str (), strerror (errno));
-            zstr_free (&patha);
-            continue;
-        }
-        std::string npath {patha};
-        devmap [it.first] = npath;
-        zstr_free (&patha);
-    }
-    zsys_info ("Device real paths initiated.");
-
-    have_rc3id = s_read_statefile (HOSTNAME_FILE, hostname);
+        agent_th_verbose = 1;
 
     mlm_client_t *client = mlm_client_new ();
     if (!client) {
@@ -329,7 +234,7 @@ main (int argc, char *argv []) {
 
     if (fty_log_level && streq (fty_log_level, "LOG_DEBUG")) {
         zsys_debug ("mlm_client_set_verbose");
-        mlm_client_set_verbose (client, true);
+        mlm_client_set_verbose (client, 1);
     }
 
     int rv = mlm_client_connect (client, addr, 1000, AGENT_NAME);
@@ -369,8 +274,36 @@ main (int argc, char *argv []) {
         return EXIT_FAILURE;
     }
 
+    zsys_info ("Initializing device real paths.");
+    zhash_t *portmap = zhash_new();
+    zhash_autofree(portmap);
+    for (i = 0; i < PORTMAP_LENGTH; ++i) {
+        char *patha = realpath (portmapping[0][i], NULL);
+        char *key = zsys_sprintf("%d", i + PORTS_OFFSET);
+        if (patha) {
+            zhash_insert(portmap, key, patha); // real link name
+            zhash_freefn(portmap, key, freefn);
+        } else {
+            zsys_warning("Can't get realpath of %s, using %s: %s", portmapping[0][i], portmapping[1][i], strerror(errno));
+            zhash_insert(portmap, key, (char *)portmapping[1][i]); // default
+            zhash_freefn(portmap, key, freefn);
+        }
+        zstr_free(&key);
+    }  
+    zsys_info ("Device real paths initiated.");
+
     uint64_t timestamp = (uint64_t) zclock_mono ();
     uint64_t timeout = (uint64_t) POLLING_INTERVAL;
+
+    zlist_t *my_sensors = zlist_new ();
+
+    // instead of keeping state file with all sensors, act like other agents and ask for republish
+    zmsg_t *republish = zmsg_new ();
+    rv = mlm_client_sendto (client, "asset-agent", "REPUBLISH", NULL, 5000, &republish);
+    if ( rv != 0) {
+        zsys_error ("Cannot send REPUBLISH message");
+    }
+    zmsg_destroy (&republish);
 
     while (!zsys_interrupted) {
         zsys_debug ("cycle ... ");
@@ -380,8 +313,7 @@ main (int argc, char *argv []) {
             if (zpoller_terminated (poller) || zsys_interrupted)
                 break;
             if (zpoller_expired (poller)) {
-                if (have_rc3id)
-                    read_sensors (client, hostname.c_str ());
+                read_sensors (client, my_sensors, portmap);
             }
             timestamp = (uint64_t) zclock_mono ();
             continue;
@@ -389,8 +321,7 @@ main (int argc, char *argv []) {
 
         uint64_t now = (uint64_t) zclock_mono ();
         if (now - timestamp >= timeout) {
-            if (have_rc3id)
-                read_sensors (client, hostname.c_str ());
+            read_sensors (client, my_sensors, portmap);
             timestamp = (uint64_t) zclock_mono ();
         }
 
@@ -411,32 +342,75 @@ main (int argc, char *argv []) {
         zsys_info ("Received an asset message, operation = '%s', name = '%s', type = '%s', subtype = '%s'",
                 operation, name, type, subtype);
 
-        if (streq (type, "device") &&
-            (streq (subtype, "rack controller") || streq (subtype, "rackcontroller" )) )
-        {
-            if ((streq (operation, FTY_PROTO_ASSET_OP_CREATE)
-                || streq (operation, FTY_PROTO_ASSET_OP_UPDATE))
-                && have_rc3id == false)
-            {
-                hostname.assign (name);
-                have_rc3id = true;
-                zsys_info ("Received rc3 id '%s'.", hostname.c_str ());
-                s_write_statefile (HOSTNAME_FILE, hostname);
-
+        if (0 == strcmp(type, "device")) {
+            const char *port = fty_proto_ext_string(asset, FTY_PROTO_ASSET_EXT_PORT, NULL);
+            const char *parent1 = fty_proto_aux_string(asset, FTY_PROTO_ASSET_AUX_PARENT_NAME_1, NULL);
+            if (!port || !parent1) {
+                continue;
             }
-            else
-            if ((streq (operation, FTY_PROTO_ASSET_OP_DELETE)
-                || streq (operation, FTY_PROTO_ASSET_OP_RETIRE))
-                && have_rc3id == true)
-            {
-                hostname.assign ("");
-                have_rc3id = false;
-                s_write_statefile (HOSTNAME_FILE, "");
+            if (0 == strncmp(subtype, "sensorgpio", strlen("sensorgpio"))) {
+                external_sensor_t *sensor = (external_sensor_t *)search_sensor(my_sensors, parent1);
+                if (streq (operation, FTY_PROTO_ASSET_OP_CREATE) || streq (operation, FTY_PROTO_ASSET_OP_UPDATE)) {
+                    if (sensor) {
+                        // add GPI sensor to Sensor
+                        zhash_update(sensor->gpi, name, (char *)port);
+                        zhash_freefn(sensor->gpi, name, freefn);
+                    } else {
+                        // create Sensor as it seems we don't know it yet, and mark if for update
+                        sensor = create_sensor(parent1, DISABLED, DISABLED, INVALID);
+                        zhash_update(sensor->gpi, name, (char *)port);
+                        zhash_freefn(sensor->gpi, name, freefn);
+                        zlist_append(my_sensors, sensor);
+                    }
+                } else if (streq (operation, FTY_PROTO_ASSET_OP_DELETE) || streq (operation, FTY_PROTO_ASSET_OP_RETIRE)) {
+                    // simple delete
+                    if (sensor) {
+                        zhash_delete(sensor->gpi, name);
+                    }
+                }
             }
-        }
+            else if (0 == strncmp(subtype, "sensor", strlen("sensor"))) {
+                external_sensor_t *sensor = (external_sensor_t *)search_sensor(my_sensors, parent1);
+                if (streq (operation, FTY_PROTO_ASSET_OP_CREATE) || streq (operation, FTY_PROTO_ASSET_OP_UPDATE)) {
+                    if (sensor) {
+                        // update sensor
+                        sensor->valid = VALID;
+                        if (0 != strcmp(parent1, sensor->rack_iname)) {
+                            free(sensor->rack_iname);
+                            sensor->rack_iname = strdup(parent1);
+                        }
+                        if (0 != strcmp(port, sensor->port)) {
+                            free(sensor->port);
+                            sensor->port = strdup(port);
+                        }
+                        sensor->temperature = TEMPERATURE;
+                        sensor->humidity = HUMIDITY;
+                    } else {
+                        // brand new sensor, just create it
+                        sensor = create_sensor(name, TEMPERATURE, HUMIDITY, VALID);
+                        sensor->rack_iname = strdup(parent1);
+                        sensor->port = strdup(port);
+                        zlist_append(my_sensors, sensor);
+                    }
+                } else if (streq (operation, FTY_PROTO_ASSET_OP_DELETE) || streq (operation, FTY_PROTO_ASSET_OP_RETIRE)) {
+                    // simple delete with deallocation
+                    if (sensor) {
+                        zlist_remove(my_sensors, sensor);
+                        free_sensor(&sensor);
+                    }
+                }
+            }
+        } 
         fty_proto_destroy (&asset);
     }
 
+    external_sensor_t *sensor = (external_sensor_t *) zlist_first(my_sensors);
+    while (sensor) {
+        free_sensor(&sensor);
+        sensor = (external_sensor_t *) zlist_next(my_sensors);
+    }
+    zhash_destroy (&portmap);
+    zlist_destroy (&my_sensors);
     zpoller_destroy (&poller);
     mlm_client_destroy (&client);
     return 0;
