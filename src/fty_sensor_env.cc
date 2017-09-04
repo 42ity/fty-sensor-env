@@ -56,26 +56,26 @@ typedef struct _ext_sensor {
     char    humidity;
     zhash_t *gpi;
     char    valid;
-} external_sensor;
+} external_sensor_t;
 
 static void freefn(void *sensorgpi)
 {
     if (sensorgpi) free(sensorgpi);
 }
 
-external_sensor *search_sensor(zlist_t *sensor_list, const char *iname) {
-    external_sensor *sensor = (external_sensor *) zlist_first(sensor_list);
+external_sensor_t *search_sensor(zlist_t *sensor_list, const char *iname) {
+    external_sensor_t *sensor = (external_sensor_t *) zlist_first(sensor_list);
     while (sensor) {
         if (0 == strcmp(sensor->iname, iname)) {
             break;
         }
-        sensor = (external_sensor *) zlist_next(sensor_list);
+        sensor = (external_sensor_t *) zlist_next(sensor_list);
     }
     return sensor;
 }
 
-external_sensor *create_sensor(const char *name, const char temperature, const char humidity, const char valid) {
-    external_sensor *sensor = (external_sensor *) malloc(sizeof(external_sensor));
+external_sensor_t *create_sensor(const char *name, const char temperature, const char humidity, const char valid) {
+    external_sensor_t *sensor = (external_sensor_t *) malloc(sizeof(external_sensor_t));
     if (!sensor) return NULL;
     sensor->iname = strdup(name);
     sensor->rack_iname = NULL;
@@ -88,7 +88,7 @@ external_sensor *create_sensor(const char *name, const char temperature, const c
     return sensor;
 }
 
-void free_sensor(external_sensor **sensor) {
+void free_sensor(external_sensor_t **sensor) {
     if ((*sensor)->iname) free((*sensor)->iname);
     if ((*sensor)->rack_iname) free((*sensor)->rack_iname);
     if ((*sensor)->port) free((*sensor)->port);
@@ -153,7 +153,7 @@ get_measurement (const char what, const char *port_file) {
     return ret;
 }
 
-static void send_message(mlm_client_t *client, fty_proto_t *msg, const external_sensor *sensor,
+static void send_message(mlm_client_t *client, fty_proto_t *msg, const external_sensor_t *sensor,
         const char *type, const char *sname, const char *ext_port) {
     if (msg == NULL) {
         return;
@@ -184,7 +184,7 @@ static void
 read_sensors (mlm_client_t *client, zlist_t *my_sensors, zhash_t *portmap)
 {
     assert (client);
-    external_sensor *sensor = (external_sensor *) zlist_first(my_sensors);
+    external_sensor_t *sensor = (external_sensor_t *) zlist_first(my_sensors);
     while (NULL != sensor) {
         const char *port_file = (char *) zhash_lookup(portmap, sensor->port);
         zsys_debug ("Measuring '%s%s'", TH, sensor->port);
@@ -212,7 +212,7 @@ read_sensors (mlm_client_t *client, zlist_t *my_sensors, zhash_t *portmap)
             }
             sensor_gpi_port = (char *) zhash_next(sensor->gpi);
         }
-        sensor = (external_sensor *) zlist_next(my_sensors);
+        sensor = (external_sensor_t *) zlist_next(my_sensors);
     }
 }
 
@@ -349,7 +349,7 @@ main (int argc, char *argv []) {
                 continue;
             }
             if (0 == strncmp(subtype, "sensorgpio", strlen("sensorgpio"))) {
-                external_sensor *sensor = (external_sensor *)search_sensor(my_sensors, parent1);
+                external_sensor_t *sensor = (external_sensor_t *)search_sensor(my_sensors, parent1);
                 if (streq (operation, FTY_PROTO_ASSET_OP_CREATE) || streq (operation, FTY_PROTO_ASSET_OP_UPDATE)) {
                     if (sensor) {
                         // add GPI sensor to Sensor
@@ -370,7 +370,7 @@ main (int argc, char *argv []) {
                 }
             }
             else if (0 == strncmp(subtype, "sensor", strlen("sensor"))) {
-                external_sensor *sensor = (external_sensor *)search_sensor(my_sensors, parent1);
+                external_sensor_t *sensor = (external_sensor_t *)search_sensor(my_sensors, parent1);
                 if (streq (operation, FTY_PROTO_ASSET_OP_CREATE) || streq (operation, FTY_PROTO_ASSET_OP_UPDATE)) {
                     if (sensor) {
                         // update sensor
@@ -404,10 +404,10 @@ main (int argc, char *argv []) {
         fty_proto_destroy (&asset);
     }
 
-    external_sensor *sensor = (external_sensor *) zlist_first(my_sensors);
+    external_sensor_t *sensor = (external_sensor_t *) zlist_first(my_sensors);
     while (sensor) {
         free_sensor(&sensor);
-        sensor = (external_sensor *) zlist_next(my_sensors);
+        sensor = (external_sensor_t *) zlist_next(my_sensors);
     }
     zhash_destroy (&portmap);
     zlist_destroy (&my_sensors);
