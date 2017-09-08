@@ -6,6 +6,7 @@
     url = "https://42ity.org"
     license = "GPL-2.0+"
     repository = "https://github.com/42ity/fty-sensor-env"
+    language = "C"
     >
 
     <target name = "debian" />
@@ -27,9 +28,10 @@
         <use project = "malamute"/>
     </use>
 
-    <class name = "libth" stable = "1">Temperature and humidity lib</class>
+    <class name = "libth" private = "1" stable = "1">Temperature and humidity lib</class>
+    <class name = "fty-sensor-env-server" stable = "1">Grab temperature and humidity data from sensors attached to the box</class>
     <main name = "fty-sensor-env" service = "1" no_config = "1">
-        Grab temperature and humidity data from sensors attached to the box
+        Runs fty-sensor-env-server class
     </main>
 
 </project>

@@ -18,25 +18,25 @@ include_HEADERS = \
 
 if ENABLE_DRAFTS
 include_HEADERS += \
-    include/libth.h
+    include/fty_sensor_env_server.h
 
 endif
 src_libfty_sensor_env_la_SOURCES = \
+    src/libth.c \
     src/platform.h
 
 if ENABLE_DRAFTS
 src_libfty_sensor_env_la_SOURCES += \
-    src/libth.cc
+    src/fty_sensor_env_server.c
 
 endif
 
 if ENABLE_DRAFTS
 src_libfty_sensor_env_la_SOURCES += \
-    src/fty_sensor_env_private_selftest.cc
+    src/fty_sensor_env_private_selftest.c
 endif
 
 src_libfty_sensor_env_la_CPPFLAGS = ${AM_CPPFLAGS}
-src_libfty_sensor_env_la_CXXFLAGS = ${AM_CXXFLAGS}
 
 src_libfty_sensor_env_la_LDFLAGS = \
     -version-info @LTVER@ \
@@ -64,7 +64,7 @@ if ENABLE_FTY_SENSOR_ENV
 bin_PROGRAMS += src/fty-sensor-env
 src_fty_sensor_env_CPPFLAGS = ${AM_CPPFLAGS}
 src_fty_sensor_env_LDADD = ${program_libs}
-src_fty_sensor_env_SOURCES = src/fty_sensor_env.cc
+src_fty_sensor_env_SOURCES = src/fty_sensor_env.c
 src_fty_sensor_env_config_DATA =
 src_fty_sensor_env_configdir = $(sysconfdir)/fty-sensor-env
 if WITH_SYSTEMD_UNITS
@@ -77,7 +77,7 @@ check_PROGRAMS += src/fty_sensor_env_selftest
 noinst_PROGRAMS += src/fty_sensor_env_selftest
 src_fty_sensor_env_selftest_CPPFLAGS = ${AM_CPPFLAGS}
 src_fty_sensor_env_selftest_LDADD = ${program_libs}
-src_fty_sensor_env_selftest_SOURCES = src/fty_sensor_env_selftest.cc
+src_fty_sensor_env_selftest_SOURCES = src/fty_sensor_env_selftest.c
 endif #ENABLE_FTY_SENSOR_ENV_SELFTEST
 
 # define custom target for all products of /src

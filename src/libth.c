@@ -1,31 +1,38 @@
 /*  =========================================================================
-    libth - Internal lib
+    libth - Temperature and humidity lib
 
-    Copyright (C) 2014 - 2017 Eaton
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
+    Copyright (C) 2014 - 2017 Eaton                                        
+                                                                           
+    This program is free software; you can redistribute it and/or modify   
+    it under the terms of the GNU General Public License as published by   
+    the Free Software Foundation; either version 2 of the License, or      
+    (at your option) any later version.                                    
+                                                                           
+    This program is distributed in the hope that it will be useful,        
+    but WITHOUT ANY WARRANTY; without even the implied warranty of         
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          
+    GNU General Public License for more details.                           
+                                                                           
     You should have received a copy of the GNU General Public License along
     with this program; if not, write to the Free Software Foundation, Inc.,
-    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.            
     =========================================================================
+*/
+
+/*
+@header
+    libth - Temperature and humidity lib
+@discuss
+@end
 */
 
 /*!
  * \file libth.c
  * \author Michal Hrusecky <MichalHrusecky@Eaton.com>
+ * \author Jiri Kukacka <JiriKukacka@Eaton.com>
  * \brief Not yet documented file
  */
 #include <stdio.h>
-#include <stdbool.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -34,8 +41,11 @@
 #include <asm/ioctls.h>
 #include <termios.h>
 #include <linux/serial.h>
+#include <assert.h>
 
-#include "libth.h"
+#include "fty_sensor_env_classes.h"
+
+//  --------------------------------------------------------------------------
 
 void compensate_humidity(int H, int T, int32_t* out) {
     double tmp = H;
@@ -191,7 +201,8 @@ int read_gpi(int fd, int port) {
 
     set_tx(fd, 1);
     msleep(1);
-    ioctl(fd, TIOCMGET, &ret);
+    if (-1 == ioctl(fd, TIOCMGET, &ret))
+        return -1;
     if (1 == port) {
         ret &= GPI_PORT1_MASK;
         ret >>= GPI_PORT1_BITSHIFT;
@@ -229,7 +240,7 @@ int get_th_data(int fd, unsigned char what) {
     return ((int)tmp[0])*255 + (int)tmp[1];
 }
 
-bool device_connected(int fd) {
+int device_connected(int fd) {
     int bytes = 0;
     char buf = 'x';
     if(fd < 0)
@@ -271,10 +282,16 @@ int open_device(const char* dev) {
     return fd;
 }
 
+
+//  --------------------------------------------------------------------------
+//  Self test of this class
+
 void
 libth_test (bool verbose)
 {
-   printf (" * libth: ");
-   // put some real test here
-   printf ("OK\n");
+    printf (" * libth: ");
+    // put some real test here
+    printf("Verifying read_gpi fails with invalid file descriptor.\n");
+    assert(-1 == read_gpi(-1, 1));
+    printf ("OK\n");
 }

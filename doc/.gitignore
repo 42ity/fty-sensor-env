@@ -11,8 +11,8 @@
 *.xml7
 
 # Ignore the source doc texts generated from program sources
-libth.txt
-libth.doc
+fty_sensor_env_server.txt
+fty_sensor_env_server.doc
 fty-sensor-env.txt
 fty-sensor-env.doc
 

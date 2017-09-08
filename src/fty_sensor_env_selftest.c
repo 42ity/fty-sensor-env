@@ -38,7 +38,7 @@ static test_item_t
 all_tests [] = {
 #ifdef FTY_SENSOR_ENV_BUILD_DRAFT_API
 // Tests for draft public classes:
-    { "libth", libth_test },
+    { "fty_sensor_env_server", fty_sensor_env_server_test },
 #endif // FTY_SENSOR_ENV_BUILD_DRAFT_API
 #ifdef FTY_SENSOR_ENV_BUILD_DRAFT_API
     { "private_classes", fty_sensor_env_private_selftest },
@@ -100,14 +100,14 @@ main (int argc, char **argv)
         else
         if (streq (argv [argn], "--number")
         ||  streq (argv [argn], "-n")) {
-            puts ("1");
+            puts ("2");
             return 0;
         }
         else
         if (streq (argv [argn], "--list")
         ||  streq (argv [argn], "-l")) {
             puts ("Available tests:");
-            puts ("    libth\t\t- draft");
+            puts ("    fty_sensor_env_server\t\t- draft");
             puts ("    private_classes\t- draft");
             return 0;
         }

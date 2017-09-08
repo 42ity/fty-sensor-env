@@ -35,11 +35,21 @@
 //  Extra headers
 
 //  Opaque class structures to allow forward references
+#ifndef LIBTH_T_DEFINED
+typedef struct _libth_t libth_t;
+#define LIBTH_T_DEFINED
+#endif
 
 //  Internal API
+#include "libth.h"
 
 //  *** To avoid double-definitions, only define if building without draft ***
 #ifndef FTY_SENSOR_ENV_BUILD_DRAFT_API
+
+//  *** Draft method, defined for internal use only ***
+//  Self test of this class.
+FTY_SENSOR_ENV_PRIVATE void
+    libth_test (bool verbose);
 
 //  Self test for private classes
 FTY_SENSOR_ENV_PRIVATE void
