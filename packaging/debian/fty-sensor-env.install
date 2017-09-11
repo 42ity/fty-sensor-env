@@ -1,4 +1,3 @@
 usr/bin/fty-sensor-env
-usr/share/man/man1/fty-sensor-env.1
 lib/systemd/system/fty-sensor-env.service
 

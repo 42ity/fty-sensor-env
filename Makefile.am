@@ -11,16 +11,12 @@ ACLOCAL_AMFLAGS = -I config
 AM_CFLAGS = \
     -Werror=format-security
 
-AM_CXXFLAGS = \
-    -Werror=format-security \
-    -std=c++11
 
 AM_CPPFLAGS = \
     ${libzmq_CFLAGS} \
     ${czmq_CFLAGS} \
     ${malamute_CFLAGS} \
     ${fty_proto_CFLAGS} \
-    -D__STDC_FORMAT_MACROS \
     -I$(srcdir)/include
 
 project_libs = ${libzmq_LIBS} ${czmq_LIBS} ${malamute_LIBS} ${fty_proto_LIBS}
@@ -49,6 +45,7 @@ EXTRA_DIST += \
 endif
 
 EXTRA_DIST += \
+    src/libth.h \
     LICENSE \
     src/fty_sensor_env_classes.h
 
