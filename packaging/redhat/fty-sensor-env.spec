@@ -94,6 +94,7 @@ This package contains development files for fty-sensor-env: grab temperature and
 %{_mandir}/man7/*
 
 %prep
+
 %setup -q
 
 %build

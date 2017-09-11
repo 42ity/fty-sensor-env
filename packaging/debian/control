@@ -21,7 +21,7 @@ Source:         fty-sensor-env
 Section:        net
 Priority:       optional
 Maintainer:     fty-sensor-env Developers <eatonipcopensource@eaton.com>
-Standards-Version: 3.9.7
+Standards-Version: 4.0.1.0
 Build-Depends: debhelper (>= 9),
     pkg-config,
     libzmq3-dev,
@@ -36,34 +36,38 @@ Build-Depends: debhelper (>= 9),
 Package: libfty-sensor-env1
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: grab temperature and humidity data from sensors attached to the box shared library
- This package contains shared library for fty-sensor-env: grab temperature and humidity data from sensors attached to the box
+Description: fty-sensor-env shared library
+ This package contains shared library for fty-sensor-env:
+ grab temperature and humidity data from sensors attached to the box
 
 Package: libfty-sensor-env-dev
 Architecture: any
 Section: libdevel
 Depends:
+    ${misc:Depends},
     libzmq3-dev,
     libczmq-dev,
     libmlm-dev,
     libfty-proto-dev,
     libfty-sensor-env1 (= ${binary:Version})
-Description: grab temperature and humidity data from sensors attached to the box development tools
- This package contains development files for fty-sensor-env: grab temperature and humidity data from sensors attached to the box
+Description: fty-sensor-env development tools
+ This package contains development files for fty-sensor-env:
+ grab temperature and humidity data from sensors attached to the box
 
 Package: fty-sensor-env
 Architecture: any
 Depends: ${misc:Depends}, ${shlibs:Depends},
-Description: grab temperature and humidity data from sensors attached to the box
- Main package for fty-sensor-env: grab temperature and humidity data from sensors attached to the box
+Description: runnable binaries from fty-sensor-env
+ Main package for fty-sensor-env:
+ grab temperature and humidity data from sensors attached to the box
 
 Package: fty-sensor-env-dbg
 Architecture: any
 Section: debug
-Priority: extra
+Priority: optional
 Depends:
     fty-sensor-env (= ${binary:Version}),
     ${misc:Depends}
-Description: grab temperature and humidity data from sensors attached to the box debugging symbols
- This package contains the debugging symbols for fty-sensor-env : grab temperature and humidity data from sensors attached to the box.
-
+Description: fty-sensor-env debugging symbols
+ This package contains the debugging symbols for fty-sensor-env:
+ grab temperature and humidity data from sensors attached to the box.

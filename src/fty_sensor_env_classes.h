@@ -41,6 +41,7 @@ typedef struct _libth_t libth_t;
 #endif
 
 //  Internal API
+
 #include "libth.h"
 
 //  *** To avoid double-definitions, only define if building without draft ***
