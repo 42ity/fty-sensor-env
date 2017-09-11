@@ -89,18 +89,18 @@ fty_sensor_env_server_new (void)
     //  Initialize class properties here
     self->mlm = mlm_client_new ();
     if (!(self->mlm)) {
-    }
-        zsys_error ("mlm_client_new () failed");
+        zsys_error ("mlm_client_new ) failed");
         return NULL;
+    }
     self->portmap = zhash_new();
     if (!(self->portmap)) {
-        zsys_error ("mlm_client_new () failed");
+        zsys_error ("portmap zhash_new() failed");
         return NULL;
     }
     zhash_autofree(self->portmap);
     self->sensors = zlist_new ();
     if (!(self->sensors)) {
-        zsys_error ("sensors zlist_new () failed");
+        zsys_error ("sensors zlist_new() failed");
         return NULL;
     }
     return self;
