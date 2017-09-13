@@ -43,19 +43,19 @@ int testing = 0;
     #define unlikely(x) (0 != x)
 #endif
 #define open_device(...) \
-    unlikely(testing) ? testing-1 : open_device(__VA_ARGS__)
+    (unlikely(testing) ? (testing-1) : open_device(__VA_ARGS__))
 #define device_connected(...) \
-    unlikely(testing) ? testing-1 : device_connected(__VA_ARGS__)
+    (unlikely(testing) ? (testing-1) : device_connected(__VA_ARGS__))
 #define reset_device(...) \
     unlikely(testing) ? (void)0 : reset_device(__VA_ARGS__)
 #define get_th_data(...) \
-    unlikely(testing) ? 1 : get_th_data(__VA_ARGS__)
+    (unlikely(testing) ? 1 : get_th_data(__VA_ARGS__))
 #define compensate_temp(...) \
     unlikely(testing) ? (void)0 : compensate_temp(__VA_ARGS__)
 #define compensate_humidity(...) \
     unlikely(testing) ? (void)0 : compensate_humidity(__VA_ARGS__)
 #define read_gpi(...) \
-    unlikely(testing) ? 1 : read_gpi(__VA_ARGS__)
+    (unlikely(testing) ? 1 : read_gpi(__VA_ARGS__))
 
 #define PORTMAP_LENGTH 4
 const char *portmapping[2][PORTMAP_LENGTH] = {
@@ -90,14 +90,13 @@ struct _fty_sensor_env_server_t {
 //  Properly free a sensor
 
 void
-free_sensor(external_sensor_t **sensor) {
+free_sensor(void *sensor) {
     if (NULL == sensor) return;
-    if ((*sensor)->iname) free((*sensor)->iname);
-    if ((*sensor)->rack_iname) free((*sensor)->rack_iname);
-    if ((*sensor)->port) free((*sensor)->port);
-    zhash_destroy(&((*sensor)->gpi));
-    free(*sensor);
-    sensor = NULL;
+    if (((external_sensor_t *)sensor)->iname) free(((external_sensor_t *)sensor)->iname);
+    if (((external_sensor_t *)sensor)->rack_iname) free(((external_sensor_t *)sensor)->rack_iname);
+    if (((external_sensor_t *)sensor)->port) free(((external_sensor_t *)sensor)->port);
+    zhash_destroy(&(((external_sensor_t *)sensor)->gpi));
+    free(sensor);
 }
 
 
@@ -141,11 +140,7 @@ fty_sensor_env_server_destroy (fty_sensor_env_server_t **self_p)
         fty_sensor_env_server_t *self = *self_p;
         //  Free class properties here
         mlm_client_destroy (&(self->mlm));
-        external_sensor_t *sensor = (external_sensor_t *) zlist_first(self->sensors);
-        while (sensor) {
-            free_sensor(&sensor);
-            sensor = (external_sensor_t *) zlist_next(self->sensors);
-        }
+        zlist_purge(self->sensors);
         zlist_destroy (&(self->sensors));
         zhash_destroy (&(self->portmap));
         //  Free object itself
@@ -303,6 +298,10 @@ read_sensors (fty_sensor_env_server_t *self)
     assert (self->mlm);
     external_sensor_t *sensor = (external_sensor_t *) zlist_first(self->sensors);
     while (NULL != sensor) {
+        if (INVALID == sensor->valid) {
+            sensor = (external_sensor_t *) zlist_next(self->sensors);
+            continue;
+        }
         const char *port_file = (char *) zhash_lookup(self->portmap, sensor->port);
         zsys_debug ("Measuring '%s%s'", TH, sensor->port);
         zsys_debug ("Reading from '%s'", port_file);
@@ -373,30 +372,39 @@ handle_proto_sensor(fty_sensor_env_server_t *self, zmsg_t *message) {
                     zhash_update(sensor->gpi, name, (char *)port);
                     zhash_freefn(sensor->gpi, name, freefn);
                     zlist_append(self->sensors, sensor);
+                    zlist_freefn(self->sensors, sensor, free_sensor, true);
                 }
             } else if (streq (operation, FTY_PROTO_ASSET_OP_DELETE) || streq (operation, FTY_PROTO_ASSET_OP_RETIRE)) {
                 // simple delete
                 if (sensor) {
                     zhash_delete(sensor->gpi, name);
                     if ((0 == zhash_size(sensor->gpi)) && (INVALID == sensor->valid)) {
-                        free_sensor(&sensor);
+                        zlist_remove(self->sensors, sensor);
                     }
                 }
             }
         }
         else if (0 == strncmp(subtype, "sensor", strlen("sensor"))) {
-            external_sensor_t *sensor = (external_sensor_t *)search_sensor(self->sensors, parent1);
+            external_sensor_t *sensor = (external_sensor_t *)search_sensor(self->sensors, name);
             if (streq (operation, FTY_PROTO_ASSET_OP_CREATE) || streq (operation, FTY_PROTO_ASSET_OP_UPDATE)) {
                 if (sensor) {
                     // update sensor
                     sensor->valid = VALID;
-                    if (0 != strcmp(parent1, sensor->rack_iname)) {
-                        free(sensor->rack_iname);
-                        sensor->rack_iname = strdup(parent1);
+                    if (!(sensor->rack_iname)) {
+                            sensor->rack_iname = strdup(parent1);
+                    } else {
+                        if (0 != strcmp(parent1, sensor->rack_iname)) {
+                            free(sensor->rack_iname);
+                            sensor->rack_iname = strdup(parent1);
+                        }
                     }
-                    if (0 != strcmp(port, sensor->port)) {
-                        free(sensor->port);
-                        sensor->port = strdup(port);
+                    if (!(sensor->port)) {
+                            sensor->port = strdup(port);
+                    } else {
+                        if (0 != strcmp(port, sensor->port)) {
+                            free(sensor->port);
+                            sensor->port = strdup(port);
+                        }
                     }
                     sensor->temperature = TEMPERATURE;
                     sensor->humidity = HUMIDITY;
@@ -406,12 +414,12 @@ handle_proto_sensor(fty_sensor_env_server_t *self, zmsg_t *message) {
                     sensor->rack_iname = strdup(parent1);
                     sensor->port = strdup(port);
                     zlist_append(self->sensors, sensor);
+                    zlist_freefn(self->sensors, sensor, free_sensor, true);
                 }
             } else if (streq (operation, FTY_PROTO_ASSET_OP_DELETE) || streq (operation, FTY_PROTO_ASSET_OP_RETIRE)) {
                 // simple delete with deallocation
                 if (sensor) {
                     zlist_remove(self->sensors, sensor);
-                    free_sensor(&sensor);
                 }
             }
         }
@@ -600,39 +608,65 @@ fty_sensor_env_server_test (bool verbose)
     assert(self->mlm);
     assert(self->portmap);
     assert(self->sensors);
+    mlm_client_connect (self->mlm, "ipc://@/malamute", 1000, "fty-sensor-env");
+    mlm_client_set_producer (self->mlm, FTY_PROTO_STREAM_METRICS_SENSOR);
+    mlm_client_set_consumer (self->mlm, FTY_PROTO_STREAM_ASSETS, ".*");
 
     // test sensors - as we support adding sensors for all reasons possible, every check should be positive
     // ===== sensors ==============================================================================
     external_sensor_t *sensor = create_sensor("test sensor", TEMPERATURE, HUMIDITY, VALID); // verify temperature and humidity sensor can be added as valid
     assert(sensor);
-    free_sensor(&sensor); // verify sensor is properly freed
-    assert(NULL == sensor);
+    free_sensor(sensor); // verify sensor is properly freed
     free_sensor(NULL); // verify free function won't fail with NULL pointer
     // add sensors to list
     sensor = create_sensor("test sensor 1", TEMPERATURE, HUMIDITY, VALID); // verify temperature and humidity sensor can be added as valid
+    sensor->rack_iname = strdup("dummyrackcontroller-1");
+    sensor->port = strdup("1");
     assert(sensor);
     zlist_append(self->sensors, sensor);
+    zlist_freefn(self->sensors, sensor, free_sensor, true);
     sensor = create_sensor("test sensor 2", DISABLED, HUMIDITY, VALID); // verify humidity sensor can be added as valid
+    sensor->rack_iname = strdup("dummyrackcontroller-1");
+    sensor->port = strdup("2");
     assert(sensor);
     zlist_append(self->sensors, sensor);
+    zlist_freefn(self->sensors, sensor, free_sensor, true);
     sensor = create_sensor("test sensor 3", TEMPERATURE, DISABLED, VALID); // verify temperature sensor can be added as valid
+    sensor->rack_iname = strdup("dummyrackcontroller-1");
+    sensor->port = strdup("3");
     assert(sensor);
     zlist_append(self->sensors, sensor);
+    zlist_freefn(self->sensors, sensor, free_sensor, true);
     sensor = create_sensor("test sensor 4", DISABLED, DISABLED, VALID); // verify sensor can be added as valid
+    sensor->rack_iname = strdup("dummyrackcontroller-1");
+    sensor->port = strdup("4");
     assert(sensor);
     zlist_append(self->sensors, sensor);
+    zlist_freefn(self->sensors, sensor, free_sensor, true);
     sensor = create_sensor("test sensor 5", TEMPERATURE, HUMIDITY, INVALID); // verify temperature and humidity sensor can be added as invalid
+    sensor->rack_iname = strdup("dummyrackcontroller-1");
+    sensor->port = strdup("5");
     assert(sensor);
     zlist_append(self->sensors, sensor);
+    zlist_freefn(self->sensors, sensor, free_sensor, true);
     sensor = create_sensor("test sensor 6", DISABLED, HUMIDITY, INVALID); // verify humidity sensor can be added as invalid
+    sensor->rack_iname = strdup("dummyrackcontroller-1");
+    sensor->port = strdup("6");
     assert(sensor);
     zlist_append(self->sensors, sensor);
+    zlist_freefn(self->sensors, sensor, free_sensor, true);
     sensor = create_sensor("test sensor 7", TEMPERATURE, DISABLED, INVALID); // verify temperature sensor can be added as invalid
+    sensor->rack_iname = strdup("dummyrackcontroller-1");
+    sensor->port = strdup("7");
     assert(sensor);
     zlist_append(self->sensors, sensor);
+    zlist_freefn(self->sensors, sensor, free_sensor, true);
     sensor = create_sensor("test sensor 8", DISABLED, DISABLED, INVALID); // verify sensor can be added as invalid
+    sensor->rack_iname = strdup("dummyrackcontroller-1");
+    sensor->port = strdup("8");
     assert(sensor);
     zlist_append(self->sensors, sensor);
+    zlist_freefn(self->sensors, sensor, free_sensor, true);
     // search sensor
     sensor = NULL;
     sensor = search_sensor(self->sensors, "test sensor 3");
@@ -648,23 +682,22 @@ fty_sensor_env_server_test (bool verbose)
     assert(TEMPERATURE == sensor->temperature);
     assert(DISABLED == sensor->humidity);
     assert(VALID == sensor->valid);
+    // remove sensors from list
+    zlist_purge(self->sensors);
     // ===== /sensors =============================================================================
+
     // ===== get_measurement function =============================================================
     testing = 2; // sets file open to pass
     fty_proto_t* msg = get_measurement(TEMPERATURE, "dummy"); // verify temperature works fine
     assert(msg);
     assert(FTY_PROTO_METRIC == fty_proto_id(msg));
-    // TODO
-    fprintf(stderr, "Read value = '%s'", fty_proto_value(msg));
-    assert(streq(fty_proto_value(msg),"1.0"));
+    assert(streq(fty_proto_value(msg),"0.01"));
     assert(streq(fty_proto_unit(msg),"C"));
     fty_proto_destroy(&msg);
     msg = get_measurement(HUMIDITY, "dummy"); // verify humidity works fine
     assert(msg);
     assert(FTY_PROTO_METRIC == fty_proto_id(msg));
-    // TODO
-    fprintf(stderr, "Read value = '%s'", fty_proto_value(msg));
-    assert(streq(fty_proto_value(msg),"1.0"));
+    assert(streq(fty_proto_value(msg),"0.01"));
     assert(streq(fty_proto_unit(msg),"%"));
     fty_proto_destroy(&msg);
     msg = get_measurement(1, "dummy"); // verify gpi works fine
@@ -676,32 +709,34 @@ fty_sensor_env_server_test (bool verbose)
     msg = get_measurement(DISABLED, "dummy"); // verify disabled check returns NULL
     assert(NULL == msg);
     testing = 1; // sets file open to fail
-    msg = get_measurement(HUMIDITY, "dummy"); // verify measurement returns NULL when file open fails
+    msg = get_measurement(HUMIDITY, "fail"); // verify measurement returns NULL when file open fails
     assert(NULL == msg);
     testing = 2; // sets file open to pass
     // ===== /get_measurement function ============================================================
+
     // ===== send_message function ================================================================
     msg = get_measurement(TEMPERATURE, "dummy");
     sensor = create_sensor("test sensor 1", TEMPERATURE, HUMIDITY, VALID);
+    sensor->rack_iname = strdup("dummyrackcontroller-1");
+    sensor->port = strdup("1");
     int rv = send_message(NULL, msg, sensor, HUMIDITY_STR "./dummy", "dummysensor-1", NULL); // verify function fails with wrong arguments
-    assert(0 == rv);
+    assert(1 == rv);
     rv = send_message(self->mlm, NULL, sensor, HUMIDITY_STR "./dummy", "dummysensor-1", NULL); // verify function fails with wrong arguments
-    assert(0 == rv);
+    assert(1 == rv);
     rv = send_message(self->mlm, msg, NULL, HUMIDITY_STR "./dummy", "dummysensor-1", NULL); // verify function fails with wrong arguments
-    assert(0 == rv);
+    assert(1 == rv);
     rv = send_message(self->mlm, msg, sensor, NULL, "dummysensor-1", NULL); // verify function fails with wrong arguments
-    assert(0 == rv);
+    assert(1 == rv);
     rv = send_message(self->mlm, msg, sensor, HUMIDITY_STR "./dummy", NULL, NULL); // verify function fails with wrong arguments
-    assert(0 == rv);
+    assert(1 == rv);
     rv = send_message(self->mlm, msg, sensor, HUMIDITY_STR "./dummy", "dummysensor-1", NULL); // verify function succeeds for regular sensors
-    assert(1 == rv);
+    assert(0 == rv);
+    msg = get_measurement(TEMPERATURE, "dummy");
     rv = send_message(self->mlm, msg, sensor, STATUSGPI_STR "1./dummy", "dummygpiosensor-1", "1"); // verify function succeeds for regular sensors
-    assert(1 == rv);
-    fty_proto_destroy(&msg);
+    assert(0 == rv);
+    free_sensor(sensor);
     // ===== /send_message function ===============================================================
-    // ===== read_sensors function ================================================================
-    read_sensors (self); // just verify there will be no crash
-    // ===== /read_sensors function ===============================================================
+
     // ===== handle_proto_sensor function =========================================================
     // add regular sensor
     msg = fty_proto_new (FTY_PROTO_ASSET);
@@ -977,7 +1012,7 @@ fty_sensor_env_server_test (bool verbose)
     assert(TEMPERATURE == sensor->temperature);
     assert(HUMIDITY == sensor->humidity);
     assert(VALID == sensor->valid);
-    assert(streq("4", sensor->port));
+    assert(streq("1", sensor->port));
     message = fty_proto_encode (&msg);
     rv = handle_proto_sensor(self, message); // verify sensor is updated properly
     sensor = search_sensor(self->sensors, "dummysensor-1");
@@ -1027,6 +1062,7 @@ fty_sensor_env_server_test (bool verbose)
         sensor_gpi_port = (char *) zhash_next(sensor->gpi);
     }
     assert(NULL == sensor_gpi_port);
+    sensor_gpi_port = (char *) zhash_first(sensor->gpi);
     while (sensor_gpi_port) {
         if (streq(sensor_gpi_port, "5")) break;
         sensor_gpi_port = (char *) zhash_next(sensor->gpi);
@@ -1034,7 +1070,6 @@ fty_sensor_env_server_test (bool verbose)
     assert(sensor_gpi_port);
     assert(streq("dummysensorgpi-1", zhash_cursor(sensor->gpi)));
     fty_proto_destroy(&msg);
-    message = fty_proto_encode (&msg);
     // try to handle invalid message
     msg = fty_proto_new (FTY_PROTO_METRIC);
     message = fty_proto_encode (&msg);
@@ -1042,6 +1077,10 @@ fty_sensor_env_server_test (bool verbose)
     assert(-1 == rv);
     fty_proto_destroy(&msg);
     // ===== /handle_proto_sensor function ========================================================
+
+    // ===== read_sensors function ================================================================
+    read_sensors (self); // just verify there will be no crash
+    // ===== /read_sensors function ===============================================================
     // close tests
     fty_sensor_env_server_destroy (&self);
     //  @end
