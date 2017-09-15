@@ -439,7 +439,7 @@ sensor_env_actor(zsock_t *pipe, void *args) {
     assert (self);
     zsock_signal (pipe, 0);
 
-    zpoller_t *poller = zpoller_new (mlm_client_msgpipe (self->mlm), NULL);
+    zpoller_t *poller = zpoller_new (pipe, mlm_client_msgpipe (self->mlm), NULL);
     if (!poller) {
         fty_sensor_env_server_destroy(&self);
         zsys_error ("zpoller_new () failed");
@@ -532,17 +532,16 @@ sensor_env_actor(zsock_t *pipe, void *args) {
                     zstr_free (&pattern);
                 }
                 else if (streq(cmd, "ASKFORASSETS")) {
+                    zsys_debug("Asking for assets");
                     zmsg_t *republish = zmsg_new ();
                     rv = mlm_client_sendto (self->mlm, "asset-agent", "REPUBLISH", NULL, 5000, &republish);
                     if ( rv != 0) {
                         zsys_error ("Cannot send REPUBLISH message");
                     }
-                    zmsg_destroy (&republish);
                 }
                 else if (streq (cmd, "VERBOSE")) {
                     agent_th_verbose = 1;
                     zsys_debug ("mlm_client_set_verbose");
-                    mlm_client_set_verbose (self->mlm, 1);
                 }
                 else {
                     zsys_debug ("Unknown command.");
@@ -563,8 +562,7 @@ sensor_env_actor(zsock_t *pipe, void *args) {
                 break;
 
             handle_proto_sensor(self, msg);
-
-            zmsg_destroy (&msg);
+            // zmsg_destroy (&msg); // called within handle_proto_sensor->fty_proto_decode
         }
     }
 
