@@ -32,6 +32,10 @@
 
 // ### logging
 int agent_th_verbose = 0;
+
+// volatile global variable
+volatile char s_interrupted = 0;
+
 #define zsys_debug(...) \
     do { if (agent_th_verbose) zsys_debug (__VA_ARGS__); } while (0);
 
@@ -305,11 +309,17 @@ read_sensors (fty_sensor_env_server_t *self)
         const char *port_file = (char *) zhash_lookup(self->portmap, sensor->port);
         zsys_debug ("Measuring '%s%s'", TH, sensor->port);
         zsys_debug ("Reading from '%s'", port_file);
+	if (s_interrupted) {
+            break;
+        }
         fty_proto_t* msg = get_measurement(TEMPERATURE, port_file);
         if (msg) {
             char *type = zsys_sprintf("%s.%s", TEMPERATURE_STR, port_file);
             send_message(self->mlm, msg, sensor, type, sensor->iname, NULL);
             zstr_free(&type);
+        }
+	if (s_interrupted) {
+            break;
         }
         msg = get_measurement(HUMIDITY, port_file);
         if (msg) {
@@ -320,6 +330,9 @@ read_sensors (fty_sensor_env_server_t *self)
         char *sensor_gpi_port = (char *) zhash_first(sensor->gpi);
         while (sensor_gpi_port) {
             int sensor_gpi_port_num = atoi(sensor_gpi_port);
+	    if (s_interrupted) {
+                break;
+            }
             msg = get_measurement(sensor_gpi_port_num, port_file);
             if (msg) {
                 char *type = zsys_sprintf("%s%s.%s", STATUSGPI_STR, sensor_gpi_port, port_file);
@@ -327,6 +340,9 @@ read_sensors (fty_sensor_env_server_t *self)
                 zstr_free(&type);
             }
             sensor_gpi_port = (char *) zhash_next(sensor->gpi);
+        }
+	if (s_interrupted) {
+            break;
         }
         sensor = (external_sensor_t *) zlist_next(self->sensors);
     }
@@ -465,12 +481,14 @@ sensor_env_actor(zsock_t *pipe, void *args) {
     uint64_t timestamp = (uint64_t) zclock_mono ();
     uint64_t timeout = (uint64_t) POLLING_INTERVAL;
 
-    while (!zsys_interrupted) {
+    while (1) {
         zsys_debug ("cycle ... ");
         void *which = zpoller_wait (poller, timeout);
         if (which == NULL) {
-            if (zpoller_terminated (poller) || zsys_interrupted)
+            if (zpoller_terminated (poller) || zsys_interrupted) {
+                zsys_info("server: zpoller terminated or zsys_interrupted");
                 break;
+            }
             if (zpoller_expired (poller)) {
                 read_sensors (self);
             }
@@ -565,9 +583,11 @@ sensor_env_actor(zsock_t *pipe, void *args) {
             // zmsg_destroy (&msg); // called within handle_proto_sensor->fty_proto_decode
         }
     }
+    zsys_info("server: about to quit");
 
     zpoller_destroy (&poller);
     fty_sensor_env_server_destroy(&self);
+    zsys_info("server: finished");
     return;
 }
 
