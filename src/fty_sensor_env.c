@@ -34,15 +34,35 @@
 @end
 */
 
+#include <signal.h>
+
 #include "fty_sensor_env_classes.h"
 
 static const char *ACTOR_NAME = "fty-sensor-env";
 static const char *ENDPOINT = "ipc://@/malamute";
 
+static void s_signal_handler (int signal_value)
+{
+    zsys_info("Signal handler triggered");
+    s_interrupted = 1;
+}
+
+static void s_catch_signals (void)
+{
+    struct sigaction action;
+    zsys_info("Setting signal handler");
+    action.sa_handler = s_signal_handler;
+    action.sa_flags = 0;
+    sigemptyset (&action.sa_mask);
+    sigaction (SIGINT, &action, NULL);
+    sigaction (SIGTERM, &action, NULL);
+}
+
 int main (int argc, char *argv [])
 {
     bool verbose = false;
     int argn;
+    s_catch_signals();
     for (argn = 1; argn < argc; argn++) {
         const char *param = NULL;
         if (argn < argc - 1) param = argv [argn+1];
@@ -67,9 +87,11 @@ int main (int argc, char *argv [])
             return 1;
         }
     }
+    s_catch_signals();
     if (verbose)
         zsys_info ("fty_sensor_env - started");
     zactor_t *server = zactor_new (sensor_env_actor, NULL);
+    s_catch_signals();
     assert (server);
     if (verbose)
         zstr_sendx (server, "VERBOSE", NULL);
@@ -78,10 +100,11 @@ int main (int argc, char *argv [])
     zstr_sendx (server, "CONSUMER", FTY_PROTO_STREAM_ASSETS, ".*", NULL);
     zstr_sendx (server, "ASKFORASSETS", NULL);
 
-    while (!zsys_interrupted) {
+    while (!s_interrupted) {
         zmsg_t *msg = zactor_recv (server);
         zmsg_destroy (&msg);
-    }   
+    }
+    zsys_info("main: about to quit");
     zactor_destroy (&server);
     if (verbose)
         zsys_info ("fty_sensor_env - exited");

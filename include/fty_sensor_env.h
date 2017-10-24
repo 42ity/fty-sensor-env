@@ -41,4 +41,6 @@
 #define VALID           1
 #define INVALID         0
 
+extern volatile char s_interrupted;
+
 #endif
