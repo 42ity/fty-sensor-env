@@ -1,21 +1,21 @@
 #
 #    fty-sensor-env - Grab temperature and humidity data from sensors attached to the box
 #
-#    Copyright (C) 2014 - 2017 Eaton                                        
-#                                                                           
-#    This program is free software; you can redistribute it and/or modify   
-#    it under the terms of the GNU General Public License as published by   
-#    the Free Software Foundation; either version 2 of the License, or      
-#    (at your option) any later version.                                    
-#                                                                           
-#    This program is distributed in the hope that it will be useful,        
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of         
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          
-#    GNU General Public License for more details.                           
-#                                                                           
+#    Copyright (C) 2014 - 2017 Eaton
+#
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 2 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
 #    You should have received a copy of the GNU General Public License along
 #    with this program; if not, write to the Free Software Foundation, Inc.,
-#    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.            
+#    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
 # To build with draft APIs, use "--with drafts" in rpmbuild for local builds or add
@@ -28,6 +28,7 @@
 %else
 %define DRAFTS no
 %endif
+%define SYSTEMD_UNIT_DIR %(pkg-config --variable=systemdsystemunitdir systemd)
 Name:           fty-sensor-env
 Version:        1.0.0
 Release:        1
@@ -113,7 +114,7 @@ find %{buildroot} -name '*.la' | xargs rm -f
 %defattr(-,root,root)
 %{_bindir}/fty-sensor-env
 %{_mandir}/man1/fty-sensor-env*
-/usr/lib/systemd/system/fty-sensor-env.service
+%{SYSTEMD_UNIT_DIR}/fty-sensor-env.service
 %dir %{_sysconfdir}/fty-sensor-env
 %if 0%{?suse_version} > 1315
 %post
