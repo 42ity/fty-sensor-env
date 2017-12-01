@@ -50,6 +50,7 @@ BuildRequires:  systemd-devel
 BuildRequires:  systemd
 %{?systemd_requires}
 BuildRequires:  xmlto
+BuildRequires:  libsodium-devel
 BuildRequires:  zeromq-devel
 BuildRequires:  czmq-devel
 BuildRequires:  malamute-devel
@@ -77,6 +78,7 @@ This package contains shared library for fty-sensor-env: grab temperature and hu
 Summary:        grab temperature and humidity data from sensors attached to the box
 Group:          System/Libraries
 Requires:       libfty_sensor_env1 = %{version}
+Requires:       libsodium-devel
 Requires:       zeromq-devel
 Requires:       czmq-devel
 Requires:       malamute-devel
