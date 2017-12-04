@@ -73,7 +73,7 @@ fty-sensor-env.txt: $(top_srcdir)/src/fty_sensor_env.c
 	"$(srcdir)/mkman" "fty_sensor_env" "$(builddir)/fty-sensor-env.txt" "$(srcdir)/.."
 
 
-clean:
+clean-local:
 	rm -f *.1 *.3 *.7 $(GENERATED_DOCS)
 
 doc: $(GENERATED_DOCS)
