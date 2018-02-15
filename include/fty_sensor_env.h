@@ -26,7 +26,8 @@
 #include "fty_sensor_env_library.h"
 
 //  Add your own public definitions here, if you need them
-#define PORTS_OFFSET                9   // ports range 9-12
+//#define PORTS_OFFSET                9   // T&H ports range 9-12
+#define PORTS_OFFSET                1 // consider ports 1-8 and 9-12
 #define POLLING_INTERVAL            5000
 #define TIME_TO_LIVE                300
 
