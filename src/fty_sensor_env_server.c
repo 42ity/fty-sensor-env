@@ -61,10 +61,22 @@ int testing = 0;
 #define read_gpi(...) \
     (unlikely(testing) ? 1 : read_gpi(__VA_ARGS__))
 
-#define PORTMAP_LENGTH 4
+#define PORTMAP_LENGTH 12
 const char *portmapping[2][PORTMAP_LENGTH] = {
-        { "/dev/ttySTH1", "/dev/ttySTH2", "/dev/ttySTH3", "/dev/ttySTH4" },
-        { "/dev/ttyS9",   "/dev/ttyS10",  "/dev/ttyS11",  "/dev/ttyS12"  } };
+        {
+            // standard serial ports which can be used for T&H too
+            // don't need/use the portmapping
+            NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+            // Real T&H dedicated serial ports
+            "/dev/ttySTH1", "/dev/ttySTH2", "/dev/ttySTH3", "/dev/ttySTH4" },
+        {
+            // standard serial ports which can be used for T&H too
+            "/dev/ttyS1",   "/dev/ttyS2",   "/dev/ttyS3",   "/dev/ttyS4",
+            "/dev/ttyS5",   "/dev/ttyS6",   "/dev/ttyS7",   "/dev/ttyS8",
+            // Real T&H dedicated serial ports
+            "/dev/ttyS9",   "/dev/ttyS10",  "/dev/ttyS11",  "/dev/ttyS12"
+        }
+};
 
 typedef struct _c_item {
     int32_t T;
