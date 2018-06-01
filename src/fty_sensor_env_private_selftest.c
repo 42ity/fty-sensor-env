@@ -35,10 +35,11 @@
 //
 
 void
-fty_sensor_env_private_selftest (bool verbose)
+fty_sensor_env_private_selftest (bool verbose, const char *subtest)
 {
 // Tests for stable private classes:
-    libth_test (verbose);
+    if (streq (subtest, "$ALL") || streq (subtest, "libth_test"))
+        libth_test (verbose);
 }
 /*
 ################################################################################

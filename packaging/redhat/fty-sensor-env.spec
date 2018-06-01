@@ -107,7 +107,6 @@ make %{_smp_mflags}
 
 %install
 make install DESTDIR=%{buildroot} %{?_smp_mflags}
-mkdir -p %{buildroot}/%{_sysconfdir}/fty-sensor-env
 
 # remove static libraries
 find %{buildroot} -name '*.a' | xargs rm -f
@@ -115,6 +114,7 @@ find %{buildroot} -name '*.la' | xargs rm -f
 
 %files
 %defattr(-,root,root)
+%doc README.md
 %{_bindir}/fty-sensor-env
 %{_mandir}/man1/fty-sensor-env*
 %{SYSTEMD_UNIT_DIR}/fty-sensor-env.service

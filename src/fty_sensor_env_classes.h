@@ -54,7 +54,7 @@ FTY_SENSOR_ENV_PRIVATE void
 
 //  Self test for private classes
 FTY_SENSOR_ENV_PRIVATE void
-    fty_sensor_env_private_selftest (bool verbose);
+    fty_sensor_env_private_selftest (bool verbose, const char *subtest);
 
 #endif // FTY_SENSOR_ENV_BUILD_DRAFT_API
 
