@@ -80,6 +80,7 @@ libzmq/
 czmq/
 malamute/
 fty-proto/
+libsodium/
 
 # Travis build area
 tmp/
