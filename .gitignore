@@ -32,10 +32,10 @@ src/fty_sensor_env_selftest
 *.app
 core
 
- # Distcheck workspace and archives
-fty-sensor-env-1.0.0/
-fty-sensor-env-1.0.0.tar.gz
-fty-sensor-env-1.0.0.zip
+# Distcheck workspace and archives
+fty-sensor-env-*/
+fty-sensor-env-*.tar.gz
+fty-sensor-env-*.zip
 
 # Man pages
 doc/*.1
@@ -81,11 +81,11 @@ CMake*
 *.cmake
 
 # Repositories downloaded by CI integration scripts
+libsodium/
 libzmq/
 czmq/
 malamute/
 fty-proto/
-libsodium/
 
 # Travis build area
 tmp/
@@ -114,7 +114,7 @@ src/app/gen/
 src/app/obj/
 src/app/local.properties
 
-# Android -dependencies
+# Android - dependencies
 src/app/jni/output
 
 # Python build directory
@@ -135,6 +135,9 @@ bindings/qt/selftest/selftest
 *.swp
 *.bak
 .test*
+
+# Netbeans directory
+nbproject/
 
 # editor backups
 *~
