@@ -391,7 +391,7 @@ handle_proto_sensor(fty_sensor_env_server_t *self, zmsg_t *message) {
             external_sensor_t *sensor = (external_sensor_t *)search_sensor(self->sensors, parent1);
             if (streq (operation, FTY_PROTO_ASSET_OP_DELETE) ||
                     streq (operation, FTY_PROTO_ASSET_OP_RETIRE) ||
-                    !streq(fty_proto_aux_string (message, FTY_PROTO_ASSET_STATUS, "active"), "active")) {
+                    !streq(fty_proto_aux_string (asset, FTY_PROTO_ASSET_STATUS, "active"), "active")) {
                 // simple delete
                 if (sensor) {
                     zhash_delete(sensor->gpi, name);
@@ -419,7 +419,7 @@ handle_proto_sensor(fty_sensor_env_server_t *self, zmsg_t *message) {
             external_sensor_t *sensor = (external_sensor_t *)search_sensor(self->sensors, name);
             if (streq (operation, FTY_PROTO_ASSET_OP_DELETE) || 
                     streq (operation, FTY_PROTO_ASSET_OP_RETIRE) ||
-                    !streq(fty_proto_aux_string (message, FTY_PROTO_ASSET_STATUS, "active"), "active")) {
+                    !streq(fty_proto_aux_string (asset, FTY_PROTO_ASSET_STATUS, "active"), "active")) {
                 // simple delete with deallocation
                 if (sensor) {
                     zlist_remove(self->sensors, sensor);
