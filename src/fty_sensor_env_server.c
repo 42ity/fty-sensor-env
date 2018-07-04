@@ -389,7 +389,18 @@ handle_proto_sensor(fty_sensor_env_server_t *self, zmsg_t *message) {
         }
         if (0 == strncmp(subtype, "sensorgpio", strlen("sensorgpio"))) {
             external_sensor_t *sensor = (external_sensor_t *)search_sensor(self->sensors, parent1);
-            if (streq (operation, FTY_PROTO_ASSET_OP_CREATE) || streq (operation, FTY_PROTO_ASSET_OP_UPDATE)) {
+            if (streq (operation, FTY_PROTO_ASSET_OP_DELETE) ||
+                    streq (operation, FTY_PROTO_ASSET_OP_RETIRE) ||
+                    !streq(fty_proto_aux_string (asset, FTY_PROTO_ASSET_STATUS, "active"), "active")) {
+                // simple delete
+                if (sensor) {
+                    zhash_delete(sensor->gpi, name);
+                    if ((0 == zhash_size(sensor->gpi)) && (INVALID == sensor->valid)) {
+                        zlist_remove(self->sensors, sensor);
+                    }
+                }
+            } else if (streq (operation, FTY_PROTO_ASSET_OP_CREATE) ||
+                    streq (operation, FTY_PROTO_ASSET_OP_UPDATE)) {
                 if (sensor) {
                     // add GPI sensor to Sensor
                     zhash_update(sensor->gpi, name, (char *)port);
@@ -402,19 +413,19 @@ handle_proto_sensor(fty_sensor_env_server_t *self, zmsg_t *message) {
                     zlist_append(self->sensors, sensor);
                     zlist_freefn(self->sensors, sensor, free_sensor, true);
                 }
-            } else if (streq (operation, FTY_PROTO_ASSET_OP_DELETE) || streq (operation, FTY_PROTO_ASSET_OP_RETIRE)) {
-                // simple delete
-                if (sensor) {
-                    zhash_delete(sensor->gpi, name);
-                    if ((0 == zhash_size(sensor->gpi)) && (INVALID == sensor->valid)) {
-                        zlist_remove(self->sensors, sensor);
-                    }
-                }
-            }
+            } 
         }
         else if (0 == strncmp(subtype, "sensor", strlen("sensor"))) {
             external_sensor_t *sensor = (external_sensor_t *)search_sensor(self->sensors, name);
-            if (streq (operation, FTY_PROTO_ASSET_OP_CREATE) || streq (operation, FTY_PROTO_ASSET_OP_UPDATE)) {
+            if (streq (operation, FTY_PROTO_ASSET_OP_DELETE) || 
+                    streq (operation, FTY_PROTO_ASSET_OP_RETIRE) ||
+                    !streq(fty_proto_aux_string (asset, FTY_PROTO_ASSET_STATUS, "active"), "active")) {
+                // simple delete with deallocation
+                if (sensor) {
+                    zlist_remove(self->sensors, sensor);
+                }
+            } else if (streq (operation, FTY_PROTO_ASSET_OP_CREATE) || 
+                    streq (operation, FTY_PROTO_ASSET_OP_UPDATE)) {
                 if (sensor) {
                     // update sensor
                     sensor->valid = VALID;
@@ -444,12 +455,7 @@ handle_proto_sensor(fty_sensor_env_server_t *self, zmsg_t *message) {
                     zlist_append(self->sensors, sensor);
                     zlist_freefn(self->sensors, sensor, free_sensor, true);
                 }
-            } else if (streq (operation, FTY_PROTO_ASSET_OP_DELETE) || streq (operation, FTY_PROTO_ASSET_OP_RETIRE)) {
-                // simple delete with deallocation
-                if (sensor) {
-                    zlist_remove(self->sensors, sensor);
-                }
-            }
+            } 
         }
     }
     fty_proto_destroy (&asset);
