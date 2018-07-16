@@ -569,9 +569,6 @@ sensor_env_actor(zsock_t *pipe, void *args) {
                         log_error ("Cannot send REPUBLISH message");
                     }
                 }
-                else if (streq (cmd, "VERBOSE")) {
-                    log_debug ("mlm_client_set_verbose");
-                }
                 else {
                     log_debug ("Unknown command.");
                 }

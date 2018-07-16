@@ -111,8 +111,6 @@ int main (int argc, char *argv [])
     zactor_t *server = zactor_new (sensor_env_actor, NULL);
     s_catch_signals();
     assert (server);
-    if (verbose)
-        zstr_sendx (server, "VERBOSE", NULL);
     zstr_sendx (server, "BIND", ENDPOINT, ACTOR_NAME, NULL);
     zstr_sendx (server, "PRODUCER", FTY_PROTO_STREAM_METRICS_SENSOR, NULL);
     zstr_sendx (server, "CONSUMER", FTY_PROTO_STREAM_ASSETS, ".*", NULL);
@@ -124,8 +122,8 @@ int main (int argc, char *argv [])
     }
     log_info("main: about to quit");
     zactor_destroy (&server);
-    if (verbose)
-        log_info ("fty_sensor_env - exited");
+
+    log_info ("fty_sensor_env - exited");
 
     ftylog_delete (log);
 
