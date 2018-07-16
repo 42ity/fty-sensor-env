@@ -33,6 +33,7 @@
 #include <czmq.h>
 #include <malamute.h>
 #include <ftyproto.h>
+#include <fty-log/fty_logger.h>
 
 //  FTY_SENSOR_ENV version macros for compile-time API detection
 #define FTY_SENSOR_ENV_VERSION_MAJOR 1
