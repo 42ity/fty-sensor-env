@@ -41,16 +41,18 @@
 static const char *ACTOR_NAME = "fty-sensor-env";
 static const char *ENDPOINT = "ipc://@/malamute";
 
+static const char *config_log = "/etc/fty/ftylog.cfg";
+
 static void s_signal_handler (int signal_value)
 {
-    zsys_info("Signal handler triggered");
+    log_info("Signal handler triggered");
     s_interrupted = 1;
 }
 
 static void s_catch_signals (void)
 {
     struct sigaction action;
-    zsys_info("Setting signal handler");
+    log_info("Setting signal handler");
     action.sa_handler = s_signal_handler;
     action.sa_flags = 0;
     sigemptyset (&action.sa_mask);
@@ -62,7 +64,9 @@ int main (int argc, char *argv [])
 {
     bool verbose = false;
     int argn;
+
     s_catch_signals();
+
     for (argn = 1; argn < argc; argn++) {
         const char *param = NULL;
         if (argn < argc - 1) param = argv [argn+1];
@@ -73,6 +77,7 @@ int main (int argc, char *argv [])
             puts ("  --verbose / -v         verbose test output");
             puts ("  --help / -h            this information");
             puts ("  --endpoint / -e        malamute endpoint [ipc://@/malamute]");
+            puts ("  --config / -c          config file for logging");
             return 0;
         }
         else if (streq (argv [argn], "--verbose") || streq (argv [argn], "-v")) {
@@ -82,19 +87,28 @@ int main (int argc, char *argv [])
             if (param) ENDPOINT = param;
             ++argn;
         }
+        else if (streq (argv [argn], "--config") || streq (argv [argn], "-c")) {
+            if (param) config_log = param;
+            ++argn;
+        }
         else {
             printf ("Unknown option: %s\n", argv [argn]);
             return 1;
         }
     }
     s_catch_signals();
-    if (verbose)
-        zsys_info ("fty_sensor_env - started");
+
+    ftylog_setInstance (ACTOR_NAME, config_log);
+    Ftylog *log = ftylog_getInstance ();
+
+    if (verbose == true) {
+        ftylog_setVeboseMode (log);
+        log_info ("fty_sensor_env - started");
+    }
+
     zactor_t *server = zactor_new (sensor_env_actor, NULL);
     s_catch_signals();
     assert (server);
-    if (verbose)
-        zstr_sendx (server, "VERBOSE", NULL);
     zstr_sendx (server, "BIND", ENDPOINT, ACTOR_NAME, NULL);
     zstr_sendx (server, "PRODUCER", FTY_PROTO_STREAM_METRICS_SENSOR, NULL);
     zstr_sendx (server, "CONSUMER", FTY_PROTO_STREAM_ASSETS, ".*", NULL);
@@ -104,10 +118,12 @@ int main (int argc, char *argv [])
         zmsg_t *msg = zactor_recv (server);
         zmsg_destroy (&msg);
     }
-    zsys_info("main: about to quit");
+    log_info("main: about to quit");
     zactor_destroy (&server);
-    if (verbose)
-        zsys_info ("fty_sensor_env - exited");
+
+    log_info ("fty_sensor_env - exited");
+
+    ftylog_delete (log);
 
     return 0;
 }

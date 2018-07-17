@@ -30,14 +30,8 @@
 
 //  Structure of our class
 
-// ### logging
-int agent_th_verbose = 0;
-
 // volatile global variable
 volatile char s_interrupted = 0;
-
-#define zsys_debug(...) \
-    do { if (agent_th_verbose) zsys_debug (__VA_ARGS__); } while (0);
 
 // for testing
 int testing = 0;
@@ -127,18 +121,18 @@ fty_sensor_env_server_new (void)
     //  Initialize class properties here
     self->mlm = mlm_client_new ();
     if (!(self->mlm)) {
-        zsys_error ("mlm_client_new ) failed");
+        log_error ("mlm_client_new ) failed");
         return NULL;
     }
     self->portmap = zhash_new();
     if (!(self->portmap)) {
-        zsys_error ("portmap zhash_new() failed");
+        log_error ("portmap zhash_new() failed");
         return NULL;
     }
     zhash_autofree(self->portmap);
     self->sensors = zlist_new ();
     if (!(self->sensors)) {
-        zsys_error ("sensors zlist_new() failed");
+        log_error ("sensors zlist_new() failed");
         return NULL;
     }
     return self;
@@ -226,7 +220,7 @@ get_measurement (const char what, const char *port_file) {
     if(!device_connected(fd)) {
         if(fd > 0)
             close(fd);
-        zsys_debug("No sensor attached to %s", port_file);
+        log_debug("No sensor attached to %s", port_file);
         fty_proto_destroy (&ret);
         return NULL;
     }
@@ -235,22 +229,22 @@ get_measurement (const char what, const char *port_file) {
         if (TEMPERATURE == what) {
             data.T = get_th_data(fd, MEASURE_TEMP);
             compensate_temp(data.T, &data.T);
-            zsys_debug("Got data from sensor '%s' - T = %" PRId32 ".%02" PRId32 " C", port_file, data.T/100, data.T%100);
+            log_debug("Got data from sensor '%s' - T = %" PRId32 ".%02" PRId32 " C", port_file, data.T/100, data.T%100);
 
             fty_proto_set_value (ret, "%.2f", data.T / (float) 100);
             fty_proto_set_unit (ret, "%s", "C");
 
-            zsys_debug ("Returning T = %s C", fty_proto_value (ret));
+            log_debug ("Returning T = %s C", fty_proto_value (ret));
         } else if (HUMIDITY == what) {
             data.T = get_th_data(fd, MEASURE_TEMP);
             data.H = get_th_data(fd, MEASURE_HUMI);
             compensate_humidity(data.H, data.T, &data.H);
-            zsys_debug("Got data from sensor '%s' - H = %" PRId32 ".%02" PRId32 " %%", port_file, data.H/100, data.H%100);
+            log_debug("Got data from sensor '%s' - H = %" PRId32 ".%02" PRId32 " %%", port_file, data.H/100, data.H%100);
 
             fty_proto_set_value (ret, "%.2f", data.H / (float) 100);
             fty_proto_set_unit (ret, "%s", "%");
 
-            zsys_debug ("Returning H = %s %%", fty_proto_value (ret));
+            log_debug ("Returning H = %s %%", fty_proto_value (ret));
         } else {
             // port number expected
             int gpi = read_gpi(fd, what);
@@ -263,7 +257,7 @@ get_measurement (const char what, const char *port_file) {
             }
             fty_proto_set_unit (ret, "%s", "");
 
-            zsys_debug ("Returning S = %s", fty_proto_value (ret));
+            log_debug ("Returning S = %s", fty_proto_value (ret));
         }
         close(fd);
     }
@@ -298,7 +292,7 @@ send_message(mlm_client_t *client, fty_proto_t *msg, const external_sensor_t *se
     zstr_free(&subject);
     fty_proto_destroy (&msg);
     if (rv != 0) {
-        zsys_error ("mlm_client_send (subject = '%s') failed", subject);
+        log_error ("mlm_client_send (subject = '%s') failed", subject);
         return 1;
     }
     return 0;
@@ -319,8 +313,8 @@ read_sensors (fty_sensor_env_server_t *self)
             continue;
         }
         const char *port_file = (char *) zhash_lookup(self->portmap, sensor->port);
-        zsys_debug ("Measuring '%s%s'", TH, sensor->port);
-        zsys_debug ("Reading from '%s'", port_file);
+        log_debug ("Measuring '%s%s'", TH, sensor->port);
+        log_debug ("Reading from '%s'", port_file);
 	if (s_interrupted) {
             break;
         }
@@ -369,7 +363,7 @@ handle_proto_sensor(fty_sensor_env_server_t *self, zmsg_t *message) {
     fty_proto_t *asset = fty_proto_decode (&message);
     if (!asset || fty_proto_id (asset) != FTY_PROTO_ASSET) {
         fty_proto_destroy (&asset);
-        zsys_warning ("fty_proto_decode () failed OR received message not FTY_PROTO_ASSET");
+        log_warning ("fty_proto_decode () failed OR received message not FTY_PROTO_ASSET");
         return -1;
     }
 
@@ -377,7 +371,7 @@ handle_proto_sensor(fty_sensor_env_server_t *self, zmsg_t *message) {
     const char *type = fty_proto_aux_string (asset, "type", "");
     const char *subtype = fty_proto_aux_string (asset, "subtype", "");
     const char *name = fty_proto_name (asset);
-    zsys_info ("Received an asset message, operation = '%s', name = '%s', type = '%s', subtype = '%s'",
+    log_info ("Received an asset message, operation = '%s', name = '%s', type = '%s', subtype = '%s'",
             operation, name, type, subtype);
 
     if (0 == strcmp(type, "device")) {
@@ -413,18 +407,18 @@ handle_proto_sensor(fty_sensor_env_server_t *self, zmsg_t *message) {
                     zlist_append(self->sensors, sensor);
                     zlist_freefn(self->sensors, sensor, free_sensor, true);
                 }
-            } 
+            }
         }
         else if (0 == strncmp(subtype, "sensor", strlen("sensor"))) {
             external_sensor_t *sensor = (external_sensor_t *)search_sensor(self->sensors, name);
-            if (streq (operation, FTY_PROTO_ASSET_OP_DELETE) || 
+            if (streq (operation, FTY_PROTO_ASSET_OP_DELETE) ||
                     streq (operation, FTY_PROTO_ASSET_OP_RETIRE) ||
                     !streq(fty_proto_aux_string (asset, FTY_PROTO_ASSET_STATUS, "active"), "active")) {
                 // simple delete with deallocation
                 if (sensor) {
                     zlist_remove(self->sensors, sensor);
                 }
-            } else if (streq (operation, FTY_PROTO_ASSET_OP_CREATE) || 
+            } else if (streq (operation, FTY_PROTO_ASSET_OP_CREATE) ||
                     streq (operation, FTY_PROTO_ASSET_OP_UPDATE)) {
                 if (sensor) {
                     // update sensor
@@ -455,7 +449,7 @@ handle_proto_sensor(fty_sensor_env_server_t *self, zmsg_t *message) {
                     zlist_append(self->sensors, sensor);
                     zlist_freefn(self->sensors, sensor, free_sensor, true);
                 }
-            } 
+            }
         }
     }
     fty_proto_destroy (&asset);
@@ -476,11 +470,11 @@ sensor_env_actor(zsock_t *pipe, void *args) {
     zpoller_t *poller = zpoller_new (pipe, mlm_client_msgpipe (self->mlm), NULL);
     if (!poller) {
         fty_sensor_env_server_destroy(&self);
-        zsys_error ("zpoller_new () failed");
+        log_error ("zpoller_new () failed");
         return;
     }
 
-    zsys_info ("Initializing device real paths.");
+    log_info ("Initializing device real paths.");
     for (i = 0; i < PORTMAP_LENGTH; ++i) {
         char *patha = realpath (portmapping[0][i], NULL);
         char *key = zsys_sprintf("%d", i + PORTS_OFFSET);
@@ -488,23 +482,23 @@ sensor_env_actor(zsock_t *pipe, void *args) {
             zhash_insert(self->portmap, key, patha); // real link name
             zhash_freefn(self->portmap, key, freefn);
         } else {
-            zsys_warning("Can't get realpath of %s, using %s: %s", portmapping[0][i], portmapping[1][i], strerror(errno));
+            log_warning("Can't get realpath of %s, using %s: %s", portmapping[0][i], portmapping[1][i], strerror(errno));
             zhash_insert(self->portmap, key, (char *)portmapping[1][i]); // default
             zhash_freefn(self->portmap, key, freefn);
         }
         zstr_free(&key);
     }
 
-    zsys_info ("Device real paths initiated.");
+    log_info ("Device real paths initiated.");
     uint64_t timestamp = (uint64_t) zclock_mono ();
     uint64_t timeout = (uint64_t) POLLING_INTERVAL;
 
     while (1) {
-        zsys_debug ("cycle ... ");
+        log_debug ("cycle ... ");
         void *which = zpoller_wait (poller, timeout);
         if (which == NULL) {
             if (zpoller_terminated (poller) || zsys_interrupted) {
-                zsys_info("server: zpoller terminated or zsys_interrupted");
+                log_info("server: zpoller terminated or zsys_interrupted");
                 break;
             }
             if (zpoller_expired (poller)) {
@@ -528,12 +522,12 @@ sensor_env_actor(zsock_t *pipe, void *args) {
                     assert (endpoint && myname);
                     int rv = mlm_client_connect (self->mlm, endpoint, 1000, myname);
                     if (rv == -1) {
-                        zsys_error (
+                        log_error (
                                 "mlm_client_connect (endpoint = '%s', timeout = '1000', address = '%s') failed",
                                 endpoint, myname);
                         break;
                     }
-                    zsys_info ("Connected to '%s' as '%s'", endpoint, myname);
+                    log_info ("Connected to '%s' as '%s'", endpoint, myname);
                     zstr_free (&endpoint);
                     zstr_free (&myname);
                 }
@@ -543,12 +537,12 @@ sensor_env_actor(zsock_t *pipe, void *args) {
                     rv = mlm_client_set_producer (self->mlm, stream);
                     if (rv == -1) {
                         mlm_client_destroy (&(self->mlm));
-                        zsys_error (
+                        log_error (
                                 "mlm_client_set_producer (stream = '%s') failed",
                                 stream);
                         break;
                     }
-                    zsys_info ("Publishing to '%s'", stream);
+                    log_info ("Publishing to '%s'", stream);
                     zstr_free (&stream);
                 }
                 else if (streq (cmd, "CONSUMER")) {
@@ -558,29 +552,25 @@ sensor_env_actor(zsock_t *pipe, void *args) {
                     rv = mlm_client_set_consumer (self->mlm, stream, pattern);
                     if (rv == -1) {
                         mlm_client_destroy (&(self->mlm));
-                        zsys_error (
+                        log_error (
                                 "mlm_client_set_consumer (stream = '%s', pattern = '%s') failed",
                                 stream, pattern);
                         break;
                     }
-                    zsys_info ("Subscribed to '%s'", stream);
+                    log_info ("Subscribed to '%s'", stream);
                     zstr_free (&stream);
                     zstr_free (&pattern);
                 }
                 else if (streq(cmd, "ASKFORASSETS")) {
-                    zsys_debug("Asking for assets");
+                    log_debug("Asking for assets");
                     zmsg_t *republish = zmsg_new ();
                     rv = mlm_client_sendto (self->mlm, "asset-agent", "REPUBLISH", NULL, 5000, &republish);
                     if ( rv != 0) {
-                        zsys_error ("Cannot send REPUBLISH message");
+                        log_error ("Cannot send REPUBLISH message");
                     }
                 }
-                else if (streq (cmd, "VERBOSE")) {
-                    agent_th_verbose = 1;
-                    zsys_debug ("mlm_client_set_verbose");
-                }
                 else {
-                    zsys_debug ("Unknown command.");
+                    log_debug ("Unknown command.");
                 }
 
                 zstr_free (&cmd);
@@ -601,11 +591,11 @@ sensor_env_actor(zsock_t *pipe, void *args) {
             // zmsg_destroy (&msg); // called within handle_proto_sensor->fty_proto_decode
         }
     }
-    zsys_info("server: about to quit");
+    log_info("server: about to quit");
 
     zpoller_destroy (&poller);
     fty_sensor_env_server_destroy(&self);
-    zsys_info("server: finished");
+    log_info("server: finished");
     return;
 }
 
