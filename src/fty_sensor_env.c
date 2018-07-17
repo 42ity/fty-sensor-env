@@ -65,7 +65,6 @@ int main (int argc, char *argv [])
     bool verbose = false;
     int argn;
 
-    //    Ftylog *log = ftylog_new (ACTOR_NAME, config_log);
     s_catch_signals();
 
     for (argn = 1; argn < argc; argn++) {
@@ -102,7 +101,6 @@ int main (int argc, char *argv [])
     ftylog_setInstance (ACTOR_NAME, config_log);
     Ftylog *log = ftylog_getInstance ();
 
-    ftylog_setConfigFile (log, config_log);
     if (verbose == true) {
         ftylog_setVeboseMode (log);
         log_info ("fty_sensor_env - started");
