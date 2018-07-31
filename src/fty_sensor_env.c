@@ -96,13 +96,11 @@ int main (int argc, char *argv [])
             return 1;
         }
     }
+    ftylog_setInstance (ACTOR_NAME, config_log);
     s_catch_signals();
 
-    ftylog_setInstance (ACTOR_NAME, config_log);
-    Ftylog *log = ftylog_getInstance ();
-
-    if (verbose == true) {
-        ftylog_setVeboseMode (log);
+    if (verbose) {
+        ftylog_setVeboseMode (ftylog_getInstance ());
         log_info ("fty_sensor_env - started");
     }
 
@@ -122,8 +120,6 @@ int main (int argc, char *argv [])
     zactor_destroy (&server);
 
     log_info ("fty_sensor_env - exited");
-
-    ftylog_delete (log);
 
     return 0;
 }
