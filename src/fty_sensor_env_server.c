@@ -494,7 +494,7 @@ sensor_env_actor(zsock_t *pipe, void *args) {
     uint64_t timeout = (uint64_t) POLLING_INTERVAL;
 
     while (1) {
-        log_debug ("cycle ... ");
+        log_trace ("cycle ... ");
         void *which = zpoller_wait (poller, timeout);
         if (which == NULL) {
             if (zpoller_terminated (poller) || zsys_interrupted) {
