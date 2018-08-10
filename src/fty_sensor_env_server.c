@@ -92,6 +92,7 @@ typedef struct _ext_sensor {
 struct _fty_sensor_env_server_t {
     mlm_client_t    *mlm;
     zhash_t         *portmap;
+    zhash_t         *gpi_env_pairing;
     zlist_t         *sensors;
 };
 
@@ -106,6 +107,7 @@ free_sensor(void *sensor) {
     if (((external_sensor_t *)sensor)->rack_iname) free(((external_sensor_t *)sensor)->rack_iname);
     if (((external_sensor_t *)sensor)->port) free(((external_sensor_t *)sensor)->port);
     zhash_destroy(&(((external_sensor_t *)sensor)->gpi));
+    ((external_sensor_t *)sensor)->valid = DELETED;
     free(sensor);
 }
 
@@ -130,6 +132,12 @@ fty_sensor_env_server_new (void)
         return NULL;
     }
     zhash_autofree(self->portmap);
+    self->gpi_env_pairing = zhash_new();
+    if (!(self->gpi_env_pairing)) {
+        log_error ("gpi_env_pairing zhash_new() failed");
+        return NULL;
+    }
+    zhash_autofree(self->gpi_env_pairing);
     self->sensors = zlist_new ();
     if (!(self->sensors)) {
         log_error ("sensors zlist_new() failed");
@@ -153,6 +161,7 @@ fty_sensor_env_server_destroy (fty_sensor_env_server_t **self_p)
         zlist_purge(self->sensors);
         zlist_destroy (&(self->sensors));
         zhash_destroy (&(self->portmap));
+        zhash_destroy (&(self->gpi_env_pairing));
         //  Free object itself
         free (self);
         *self_p = NULL;
@@ -309,34 +318,39 @@ read_sensors (fty_sensor_env_server_t *self)
     external_sensor_t *sensor = (external_sensor_t *) zlist_first(self->sensors);
     while (NULL != sensor) {
         if (INVALID == sensor->valid) {
+            // nothing to be done for INVALID sensors
             sensor = (external_sensor_t *) zlist_next(self->sensors);
             continue;
         }
         const char *port_file = (char *) zhash_lookup(self->portmap, sensor->port);
-        log_debug ("Measuring '%s%s'", TH, sensor->port);
-        log_debug ("Reading from '%s'", port_file);
-	if (s_interrupted) {
-            break;
+        fty_proto_t* msg = NULL;
+        if (VALID == sensor->valid) { // we measure only active sensors for T&H
+            log_debug ("Measuring '%s%s'", TH, sensor->port);
+            log_debug ("Reading from '%s'", port_file);
+            if (s_interrupted) {
+                break;
+            }
+            fty_proto_t* msg = get_measurement(TEMPERATURE, port_file);
+            if (msg) {
+                char *type = zsys_sprintf("%s.%s", TEMPERATURE_STR, port_file);
+                send_message(self->mlm, msg, sensor, type, sensor->iname, NULL);
+                zstr_free(&type);
+            }
+            if (s_interrupted) {
+                break;
+            }
+            msg = get_measurement(HUMIDITY, port_file);
+            if (msg) {
+                char *type = zsys_sprintf("%s.%s", HUMIDITY_STR, port_file);
+                send_message(self->mlm, msg, sensor, type, sensor->iname, NULL);
+                zstr_free(&type);
+            }
         }
-        fty_proto_t* msg = get_measurement(TEMPERATURE, port_file);
-        if (msg) {
-            char *type = zsys_sprintf("%s.%s", TEMPERATURE_STR, port_file);
-            send_message(self->mlm, msg, sensor, type, sensor->iname, NULL);
-            zstr_free(&type);
-        }
-	if (s_interrupted) {
-            break;
-        }
-        msg = get_measurement(HUMIDITY, port_file);
-        if (msg) {
-            char *type = zsys_sprintf("%s.%s", HUMIDITY_STR, port_file);
-            send_message(self->mlm, msg, sensor, type, sensor->iname, NULL);
-            zstr_free(&type);
-        }
+        // GPI sensors are checked regardless of their master state (both VALID and INACTIVE)
         char *sensor_gpi_port = (char *) zhash_first(sensor->gpi);
         while (sensor_gpi_port) {
             int sensor_gpi_port_num = atoi(sensor_gpi_port);
-	    if (s_interrupted) {
+            if (s_interrupted) {
                 break;
             }
             msg = get_measurement(sensor_gpi_port_num, port_file);
@@ -347,7 +361,7 @@ read_sensors (fty_sensor_env_server_t *self)
             }
             sensor_gpi_port = (char *) zhash_next(sensor->gpi);
         }
-	if (s_interrupted) {
+        if (s_interrupted) {
             break;
         }
         sensor = (external_sensor_t *) zlist_next(self->sensors);
@@ -389,17 +403,48 @@ handle_proto_sensor(fty_sensor_env_server_t *self, zmsg_t *message) {
                 // simple delete
                 if (sensor) {
                     zhash_delete(sensor->gpi, name);
-                    if ((0 == zhash_size(sensor->gpi)) && (INVALID == sensor->valid)) {
+                    if ((0 == zhash_size(sensor->gpi)) && (VALID != sensor->valid)) {
                         zlist_remove(self->sensors, sensor);
                     }
+                    zhash_delete(self->gpi_env_pairing, name);
                 }
             } else if (streq (operation, FTY_PROTO_ASSET_OP_CREATE) ||
                     streq (operation, FTY_PROTO_ASSET_OP_UPDATE)) {
                 if (sensor) {
+                    // delete gpi sensor if there was one attached to different env one
+                    const char *previous_parent = (char *) zhash_lookup(self->gpi_env_pairing, name);
+                    if (previous_parent && !streq(previous_parent, parent1)) {
+                        external_sensor_t *previous_parent_sensor = (external_sensor_t *)search_sensor(self->sensors, previous_parent);
+                        if (previous_parent_sensor && previous_parent_sensor != sensor) {
+                            zhash_delete(previous_parent_sensor->gpi, name);
+                            if ((0 == zhash_size(previous_parent_sensor->gpi)) && (VALID != previous_parent_sensor->valid)) {
+                                zlist_remove(self->sensors, previous_parent_sensor);
+                            }
+                        }
+                        zhash_update(self->gpi_env_pairing, name, (char *)parent1);
+                    }
+                    if (!previous_parent) {
+                        zhash_update(self->gpi_env_pairing, name, (char *)parent1);
+                    }
                     // add GPI sensor to Sensor
                     zhash_update(sensor->gpi, name, (char *)port);
                     zhash_freefn(sensor->gpi, name, freefn);
                 } else {
+                    // delete gpi sensor if there was one attached to different env one
+                    const char *previous_parent = (char *) zhash_lookup(self->gpi_env_pairing, name);
+                    if (previous_parent && !streq(previous_parent, parent1)) {
+                        external_sensor_t *previous_parent_sensor = (external_sensor_t *)search_sensor(self->sensors, previous_parent);
+                        if (previous_parent_sensor) {
+                            zhash_delete(previous_parent_sensor->gpi, name);
+                            if ((0 == zhash_size(previous_parent_sensor->gpi)) && (VALID != previous_parent_sensor->valid)) {
+                                zlist_remove(self->sensors, previous_parent_sensor);
+                            }
+                        }
+                        zhash_update(self->gpi_env_pairing, name, (char *)parent1);
+                    }
+                    if (!previous_parent) {
+                        zhash_update(self->gpi_env_pairing, name, (char *)parent1);
+                    }
                     // create Sensor as it seems we don't know it yet, and mark if for update
                     sensor = create_sensor(parent1, DISABLED, DISABLED, INVALID);
                     zhash_update(sensor->gpi, name, (char *)port);
@@ -416,7 +461,12 @@ handle_proto_sensor(fty_sensor_env_server_t *self, zmsg_t *message) {
                     !streq(fty_proto_aux_string (asset, FTY_PROTO_ASSET_STATUS, "active"), "active")) {
                 // simple delete with deallocation
                 if (sensor) {
-                    zlist_remove(self->sensors, sensor);
+                    if (0 == zhash_size(sensor->gpi)) {
+                        // sensor is valid and has no gpio sensors attached
+                        zlist_remove(self->sensors, sensor);
+                    } else {
+                        sensor->valid = INACTIVE;
+                    }
                 }
             } else if (streq (operation, FTY_PROTO_ASSET_OP_CREATE) ||
                     streq (operation, FTY_PROTO_ASSET_OP_UPDATE)) {
@@ -780,14 +830,42 @@ fty_sensor_env_server_test (bool verbose)
     fty_proto_set_name(msg, "dummysensor-1");
     zmsg_t *message = fty_proto_encode (&msg);
     rv = handle_proto_sensor(self, message); // verify sensor is added properly
+    assert(0 == rv);
     sensor = search_sensor(self->sensors, "dummysensor-1");
     assert(sensor);
+    assert(1 == zlist_size(self->sensors));
     assert(0 == strcmp(sensor->iname, "dummysensor-1"));
+    assert(0 == strcmp(sensor->rack_iname, "dummyrackcontroller-1"));
     assert(TEMPERATURE == sensor->temperature);
     assert(HUMIDITY == sensor->humidity);
     assert(VALID == sensor->valid);
     assert(streq("1", sensor->port));
-    fty_proto_destroy(&msg);
+    // update regular sensor to different parent
+    msg = fty_proto_new (FTY_PROTO_ASSET);
+    fty_proto_set_operation(msg, FTY_PROTO_ASSET_OP_UPDATE);
+    aux = zhash_new();
+    zhash_autofree(aux);
+    zhash_insert(aux, "type", "device");
+    zhash_insert(aux, "subtype", "sensor");
+    zhash_insert(aux, FTY_PROTO_ASSET_AUX_PARENT_NAME_1, "dummyrackcontroller-2");
+    fty_proto_set_aux(msg, &aux);
+    ext = zhash_new();
+    zhash_autofree(ext);
+    zhash_insert(ext, FTY_PROTO_ASSET_EXT_PORT, "1");
+    fty_proto_set_ext(msg, &ext);
+    fty_proto_set_name(msg, "dummysensor-1");
+    message = fty_proto_encode (&msg);
+    rv = handle_proto_sensor(self, message); // verify sensor is updated properly
+    assert(0 == rv);
+    sensor = search_sensor(self->sensors, "dummysensor-1");
+    assert(sensor);
+    assert(1 == zlist_size(self->sensors));
+    assert(0 == strcmp(sensor->iname, "dummysensor-1"));
+    assert(0 == strcmp(sensor->rack_iname, "dummyrackcontroller-2"));
+    assert(TEMPERATURE == sensor->temperature);
+    assert(HUMIDITY == sensor->humidity);
+    assert(VALID == sensor->valid);
+    assert(streq("1", sensor->port));
     // add another sensor
     msg = fty_proto_new (FTY_PROTO_ASSET);
     fty_proto_set_operation(msg, FTY_PROTO_ASSET_OP_CREATE);
@@ -804,13 +882,13 @@ fty_sensor_env_server_test (bool verbose)
     fty_proto_set_name(msg, "dummysensor-2");
     message = fty_proto_encode (&msg);
     rv = handle_proto_sensor(self, message); // verify sensor is added properly
+    assert(0 == rv);
     sensor = search_sensor(self->sensors, "dummysensor-2");
     assert(sensor);
     assert(0 == strcmp(sensor->iname, "dummysensor-2"));
     assert(TEMPERATURE == sensor->temperature);
     assert(HUMIDITY == sensor->humidity);
     assert(VALID == sensor->valid);
-    fty_proto_destroy(&msg);
     // delete sensor
     msg = fty_proto_new (FTY_PROTO_ASSET);
     fty_proto_set_operation(msg, FTY_PROTO_ASSET_OP_DELETE);
@@ -827,9 +905,9 @@ fty_sensor_env_server_test (bool verbose)
     fty_proto_set_name(msg, "dummysensor-2");
     message = fty_proto_encode (&msg);
     rv = handle_proto_sensor(self, message); // verify sensor is removed properly
+    assert(0 == rv);
     sensor = search_sensor(self->sensors, "dummysensor-2");
     assert(NULL == sensor);
-    fty_proto_destroy(&msg);
     // add GPI sensor to existing sensor
     msg = fty_proto_new (FTY_PROTO_ASSET);
     fty_proto_set_operation(msg, FTY_PROTO_ASSET_OP_CREATE);
@@ -846,6 +924,7 @@ fty_sensor_env_server_test (bool verbose)
     fty_proto_set_name(msg, "dummysensorgpi-1");
     message = fty_proto_encode (&msg);
     rv = handle_proto_sensor(self, message); // verify sensorgpi is added properly
+    assert(0 == rv);
     sensor = search_sensor(self->sensors, "dummysensor-1");
     assert(sensor);
     assert(0 == strcmp(sensor->iname, "dummysensor-1"));
@@ -857,7 +936,6 @@ fty_sensor_env_server_test (bool verbose)
     }
     assert(sensor_gpi_port);
     assert(streq("dummysensorgpi-1", zhash_cursor(sensor->gpi)));
-    fty_proto_destroy(&msg);
     // add another GPI sensor to existing sensor
     msg = fty_proto_new (FTY_PROTO_ASSET);
     fty_proto_set_operation(msg, FTY_PROTO_ASSET_OP_CREATE);
@@ -874,6 +952,7 @@ fty_sensor_env_server_test (bool verbose)
     fty_proto_set_name(msg, "dummysensorgpi-2");
     message = fty_proto_encode (&msg);
     rv = handle_proto_sensor(self, message); // verify sensorgpi is added properly
+    assert(0 == rv);
     sensor = search_sensor(self->sensors, "dummysensor-1");
     assert(sensor);
     assert(0 == strcmp(sensor->iname, "dummysensor-1"));
@@ -885,7 +964,6 @@ fty_sensor_env_server_test (bool verbose)
     }
     assert(sensor_gpi_port);
     assert(streq("dummysensorgpi-2", zhash_cursor(sensor->gpi)));
-    fty_proto_destroy(&msg);
     // delete sensor GPI
     msg = fty_proto_new (FTY_PROTO_ASSET);
     fty_proto_set_operation(msg, FTY_PROTO_ASSET_OP_DELETE);
@@ -902,6 +980,7 @@ fty_sensor_env_server_test (bool verbose)
     fty_proto_set_name(msg, "dummysensorgpi-2");
     message = fty_proto_encode (&msg);
     rv = handle_proto_sensor(self, message); // verify sensorgpi is removed properly
+    assert(0 == rv);
     sensor = search_sensor(self->sensors, "dummysensor-1");
     assert(sensor);
     assert(0 == strcmp(sensor->iname, "dummysensor-1"));
@@ -912,7 +991,6 @@ fty_sensor_env_server_test (bool verbose)
         sensor_gpi_port = (char *) zhash_next(sensor->gpi);
     }
     assert(NULL == sensor_gpi_port);
-    fty_proto_destroy(&msg);
     // add GPI sensor to non-existing sensor
     msg = fty_proto_new (FTY_PROTO_ASSET);
     fty_proto_set_operation(msg, FTY_PROTO_ASSET_OP_CREATE);
@@ -924,23 +1002,23 @@ fty_sensor_env_server_test (bool verbose)
     fty_proto_set_aux(msg, &aux);
     ext = zhash_new();
     zhash_autofree(ext);
-    zhash_insert(ext, FTY_PROTO_ASSET_EXT_PORT, "1");
+    zhash_insert(ext, FTY_PROTO_ASSET_EXT_PORT, "3");
     fty_proto_set_ext(msg, &ext);
     fty_proto_set_name(msg, "dummysensorgpi-3");
     message = fty_proto_encode (&msg);
     rv = handle_proto_sensor(self, message); // verify sensorgpi is added properly
+    assert(0 == rv);
     sensor = search_sensor(self->sensors, "dummysensor-3");
     assert(sensor);
     assert(0 == strcmp(sensor->iname, "dummysensor-3"));
     assert(INVALID == sensor->valid);
     sensor_gpi_port = (char *) zhash_first(sensor->gpi);
     while (sensor_gpi_port) {
-        if (streq(sensor_gpi_port, "1")) break;
+        if (streq(sensor_gpi_port, "3")) break;
         sensor_gpi_port = (char *) zhash_next(sensor->gpi);
     }
     assert(sensor_gpi_port);
     assert(streq("dummysensorgpi-3", zhash_cursor(sensor->gpi)));
-    fty_proto_destroy(&msg);
     // add regular sensor to make non-existing sensor valid
     msg = fty_proto_new (FTY_PROTO_ASSET);
     fty_proto_set_operation(msg, FTY_PROTO_ASSET_OP_CREATE);
@@ -957,6 +1035,7 @@ fty_sensor_env_server_test (bool verbose)
     fty_proto_set_name(msg, "dummysensor-3");
     message = fty_proto_encode (&msg);
     rv = handle_proto_sensor(self, message); // verify sensor is added properly
+    assert(0 == rv);
     sensor = search_sensor(self->sensors, "dummysensor-3");
     assert(sensor);
     assert(0 == strcmp(sensor->iname, "dummysensor-3"));
@@ -965,12 +1044,11 @@ fty_sensor_env_server_test (bool verbose)
     assert(VALID == sensor->valid);
     sensor_gpi_port = (char *) zhash_first(sensor->gpi);
     while (sensor_gpi_port) {
-        if (streq(sensor_gpi_port, "1")) break;
+        if (streq(sensor_gpi_port, "3")) break;
         sensor_gpi_port = (char *) zhash_next(sensor->gpi);
     }
     assert(sensor_gpi_port);
     assert(streq("dummysensorgpi-3", zhash_cursor(sensor->gpi)));
-    fty_proto_destroy(&msg);
     // add GPI sensor to non-existing sensor
     msg = fty_proto_new (FTY_PROTO_ASSET);
     fty_proto_set_operation(msg, FTY_PROTO_ASSET_OP_CREATE);
@@ -982,23 +1060,23 @@ fty_sensor_env_server_test (bool verbose)
     fty_proto_set_aux(msg, &aux);
     ext = zhash_new();
     zhash_autofree(ext);
-    zhash_insert(ext, FTY_PROTO_ASSET_EXT_PORT, "1");
+    zhash_insert(ext, FTY_PROTO_ASSET_EXT_PORT, "4");
     fty_proto_set_ext(msg, &ext);
     fty_proto_set_name(msg, "dummysensorgpi-4");
     message = fty_proto_encode (&msg);
     rv = handle_proto_sensor(self, message); // verify sensorgpi is added properly
+    assert(0 == rv);
     sensor = search_sensor(self->sensors, "dummysensor-4");
     assert(sensor);
     assert(0 == strcmp(sensor->iname, "dummysensor-4"));
     assert(INVALID == sensor->valid);
     sensor_gpi_port = (char *) zhash_first(sensor->gpi);
     while (sensor_gpi_port) {
-        if (streq(sensor_gpi_port, "1")) break;
+        if (streq(sensor_gpi_port, "4")) break;
         sensor_gpi_port = (char *) zhash_next(sensor->gpi);
     }
     assert(sensor_gpi_port);
     assert(streq("dummysensorgpi-4", zhash_cursor(sensor->gpi)));
-    fty_proto_destroy(&msg);
     // delete GPI sensor with non-existing sensor
     msg = fty_proto_new (FTY_PROTO_ASSET);
     fty_proto_set_operation(msg, FTY_PROTO_ASSET_OP_DELETE);
@@ -1010,14 +1088,14 @@ fty_sensor_env_server_test (bool verbose)
     fty_proto_set_aux(msg, &aux);
     ext = zhash_new();
     zhash_autofree(ext);
-    zhash_insert(ext, FTY_PROTO_ASSET_EXT_PORT, "1");
+    zhash_insert(ext, FTY_PROTO_ASSET_EXT_PORT, "4");
     fty_proto_set_ext(msg, &ext);
     fty_proto_set_name(msg, "dummysensorgpi-4");
     message = fty_proto_encode (&msg);
     rv = handle_proto_sensor(self, message); // verify whole sensor is removed
+    assert(0 == rv);
     sensor = search_sensor(self->sensors, "dummysensor-4");
     assert(NULL == sensor);
-    fty_proto_destroy(&msg);
     // update regular sensor
     msg = fty_proto_new (FTY_PROTO_ASSET);
     fty_proto_set_operation(msg, FTY_PROTO_ASSET_OP_UPDATE);
@@ -1029,7 +1107,7 @@ fty_sensor_env_server_test (bool verbose)
     fty_proto_set_aux(msg, &aux);
     ext = zhash_new();
     zhash_autofree(ext);
-    zhash_insert(ext, FTY_PROTO_ASSET_EXT_PORT, "4");
+    zhash_insert(ext, FTY_PROTO_ASSET_EXT_PORT, "51");
     fty_proto_set_ext(msg, &ext);
     fty_proto_set_name(msg, "dummysensor-1");
     sensor = search_sensor(self->sensors, "dummysensor-1");
@@ -1041,14 +1119,14 @@ fty_sensor_env_server_test (bool verbose)
     assert(streq("1", sensor->port));
     message = fty_proto_encode (&msg);
     rv = handle_proto_sensor(self, message); // verify sensor is updated properly
+    assert(0 == rv);
     sensor = search_sensor(self->sensors, "dummysensor-1");
     assert(sensor);
     assert(0 == strcmp(sensor->iname, "dummysensor-1"));
     assert(TEMPERATURE == sensor->temperature);
     assert(HUMIDITY == sensor->humidity);
     assert(VALID == sensor->valid);
-    assert(streq("4", sensor->port));
-    fty_proto_destroy(&msg);
+    assert(streq("51", sensor->port));
     // update GPI sensor to existing sensor
     msg = fty_proto_new (FTY_PROTO_ASSET);
     fty_proto_set_operation(msg, FTY_PROTO_ASSET_OP_UPDATE);
@@ -1060,14 +1138,14 @@ fty_sensor_env_server_test (bool verbose)
     fty_proto_set_aux(msg, &aux);
     ext = zhash_new();
     zhash_autofree(ext);
-    zhash_insert(ext, FTY_PROTO_ASSET_EXT_PORT, "5");
+    zhash_insert(ext, FTY_PROTO_ASSET_EXT_PORT, "101");
     fty_proto_set_ext(msg, &ext);
     fty_proto_set_name(msg, "dummysensorgpi-1");
     sensor = search_sensor(self->sensors, "dummysensor-1");
     assert(sensor);
     assert(0 == strcmp(sensor->iname, "dummysensor-1"));
     assert(VALID == sensor->valid);
-    assert(streq("4",sensor->port));
+    assert(streq("51",sensor->port));
     sensor_gpi_port = (char *) zhash_first(sensor->gpi);
     while (sensor_gpi_port) {
         if (streq(sensor_gpi_port, "1")) break;
@@ -1077,11 +1155,12 @@ fty_sensor_env_server_test (bool verbose)
     assert(streq("dummysensorgpi-1", zhash_cursor(sensor->gpi)));
     message = fty_proto_encode (&msg);
     rv = handle_proto_sensor(self, message); // verify sensorgpi is added properly
+    assert(0 == rv);
     sensor = search_sensor(self->sensors, "dummysensor-1");
     assert(sensor);
     assert(0 == strcmp(sensor->iname, "dummysensor-1"));
     assert(VALID == sensor->valid);
-    assert(streq("4",sensor->port));
+    assert(streq("51",sensor->port));
     sensor_gpi_port = (char *) zhash_first(sensor->gpi);
     while (sensor_gpi_port) {
         if (streq(sensor_gpi_port, "1")) break;
@@ -1090,18 +1169,94 @@ fty_sensor_env_server_test (bool verbose)
     assert(NULL == sensor_gpi_port);
     sensor_gpi_port = (char *) zhash_first(sensor->gpi);
     while (sensor_gpi_port) {
-        if (streq(sensor_gpi_port, "5")) break;
+        if (streq(sensor_gpi_port, "101")) break;
         sensor_gpi_port = (char *) zhash_next(sensor->gpi);
     }
     assert(sensor_gpi_port);
     assert(streq("dummysensorgpi-1", zhash_cursor(sensor->gpi)));
-    fty_proto_destroy(&msg);
+    // add another GPI sensor to existing sensor
+    msg = fty_proto_new (FTY_PROTO_ASSET);
+    fty_proto_set_operation(msg, FTY_PROTO_ASSET_OP_CREATE);
+    aux = zhash_new();
+    zhash_autofree(aux);
+    zhash_insert(aux, "type", "device");
+    zhash_insert(aux, "subtype", "sensorgpio");
+    zhash_insert(aux, FTY_PROTO_ASSET_AUX_PARENT_NAME_1, "dummysensor-1");
+    fty_proto_set_aux(msg, &aux);
+    ext = zhash_new();
+    zhash_autofree(ext);
+    zhash_insert(ext, FTY_PROTO_ASSET_EXT_PORT, "5");
+    fty_proto_set_ext(msg, &ext);
+    fty_proto_set_name(msg, "dummysensorgpi-5");
+    message = fty_proto_encode (&msg);
+    rv = handle_proto_sensor(self, message); // verify sensorgpi is added properly
+    assert(0 == rv);
+    sensor = search_sensor(self->sensors, "dummysensor-1");
+    assert(sensor);
+    assert(0 == strcmp(sensor->iname, "dummysensor-1"));
+    assert(VALID == sensor->valid);
+    sensor_gpi_port = (char *) zhash_first(sensor->gpi);
+    while (sensor_gpi_port) {
+        if (streq(sensor_gpi_port, "5")) break;
+        sensor_gpi_port = (char *) zhash_next(sensor->gpi);
+    }
+    assert(sensor_gpi_port);
+    assert(streq("dummysensorgpi-5", zhash_cursor(sensor->gpi)));
+    // update GPI sensor (move it to a different Env sensor)
+    msg = fty_proto_new (FTY_PROTO_ASSET);
+    fty_proto_set_operation(msg, FTY_PROTO_ASSET_OP_UPDATE);
+    aux = zhash_new();
+    zhash_autofree(aux);
+    zhash_insert(aux, "type", "device");
+    zhash_insert(aux, "subtype", "sensorgpio");
+    zhash_insert(aux, FTY_PROTO_ASSET_AUX_PARENT_NAME_1, "dummysensor-3");
+    fty_proto_set_aux(msg, &aux);
+    ext = zhash_new();
+    zhash_autofree(ext);
+    zhash_insert(ext, FTY_PROTO_ASSET_EXT_PORT, "5");
+    fty_proto_set_ext(msg, &ext);
+    fty_proto_set_name(msg, "dummysensorgpi-5");
+    sensor = search_sensor(self->sensors, "dummysensor-1");
+    assert(sensor);
+    assert(0 == strcmp(sensor->iname, "dummysensor-1"));
+    assert(VALID == sensor->valid);
+    sensor_gpi_port = (char *) zhash_first(sensor->gpi);
+    while (sensor_gpi_port) {
+        if (streq(sensor_gpi_port, "5")) break;
+        sensor_gpi_port = (char *) zhash_next(sensor->gpi);
+    }
+    assert(sensor_gpi_port);
+    assert(streq("dummysensorgpi-5", zhash_cursor(sensor->gpi)));
+    message = fty_proto_encode (&msg);
+    rv = handle_proto_sensor(self, message); // verify sensorgpi is changed properly
+    assert(0 == rv);
+    sensor = search_sensor(self->sensors, "dummysensor-1");
+    assert(sensor);
+    assert(0 == strcmp(sensor->iname, "dummysensor-1"));
+    assert(VALID == sensor->valid);
+    sensor_gpi_port = (char *) zhash_first(sensor->gpi);
+    while (sensor_gpi_port) {
+        if (streq(sensor_gpi_port, "5")) break;
+        sensor_gpi_port = (char *) zhash_next(sensor->gpi);
+    }
+    assert(NULL == sensor_gpi_port);
+    sensor_gpi_port = (char *) zhash_first(sensor->gpi);
+    sensor = search_sensor(self->sensors, "dummysensor-3");
+    assert(sensor);
+    assert(0 == strcmp(sensor->iname, "dummysensor-3"));
+    assert(VALID == sensor->valid);
+    sensor_gpi_port = (char *) zhash_first(sensor->gpi);
+    while (sensor_gpi_port) {
+        if (streq(sensor_gpi_port, "5")) break;
+        sensor_gpi_port = (char *) zhash_next(sensor->gpi);
+    }
+    assert(sensor_gpi_port);
+    assert(streq("dummysensorgpi-5", zhash_cursor(sensor->gpi)));
     // try to handle invalid message
     msg = fty_proto_new (FTY_PROTO_METRIC);
     message = fty_proto_encode (&msg);
     rv = handle_proto_sensor(self, message); // verify wrong message is rejected
     assert(-1 == rv);
-    fty_proto_destroy(&msg);
     // ===== /handle_proto_sensor function ========================================================
 
     // ===== read_sensors function ================================================================

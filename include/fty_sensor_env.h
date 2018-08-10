@@ -39,8 +39,11 @@
 #define HUMIDITY_STR    "humidity"
 #define STATUSGPI_STR   "status.GPI"
 #define TH              "TH"
-#define VALID           1
-#define INVALID         0
+#define VALID           1 // valid T&H sensor, monitored
+#define INACTIVE        2 // valid T&H sensor, not monitored (inactive), but still monitor attached GPI sensors
+#define DELETED         3 // to keep memory sanity in case of memory failure
+#define INVALID         0 // invalid T&H sensor (not known asset), so won't monitor neither T&H nor GPI
+                          // (as they all require attachment to rack) that is only configured via T&H sensor
 
 extern volatile char s_interrupted;
 
