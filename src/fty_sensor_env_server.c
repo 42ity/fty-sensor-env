@@ -389,20 +389,25 @@ handle_proto_sensor(fty_sensor_env_server_t *self, zmsg_t *message) {
             operation, name, type, subtype);
 
     if (0 == strcmp(type, "device")) {
+        if (0 == fty_proto_aux_number (asset, "parent", 0)) {
+            log_warning ("There are no parents available");
+        }
         const char *port = fty_proto_ext_string(asset, FTY_PROTO_ASSET_EXT_PORT, NULL);
         const char *parent1 = fty_proto_aux_string(asset, FTY_PROTO_ASSET_AUX_PARENT_NAME_1, NULL);
-        if (!port || !parent1) {
-            fty_proto_destroy (&asset);
-            return 1;
-        }
         if (0 == strncmp(subtype, "sensorgpio", strlen("sensorgpio"))) {
-            // ignore sensors that don't have parent2 rackcontroller-0 - parent1 must be some EMP sensor
-            const char *parent2 = fty_proto_aux_string(asset, "parent_name.2", NULL);
-            if (! streq (parent2, "rackcontroller-0")) {
-                fty_proto_destroy (&asset);
-                return 1;
+            external_sensor_t *sensor = NULL;
+            if (parent1) {
+                sensor = (external_sensor_t *)search_sensor(self->sensors, parent1);
+            } else {
+                const char *known_parent = (char *) zhash_lookup(self->gpi_env_pairing, name);
+                if (known_parent) {
+                    sensor = (external_sensor_t *)search_sensor(self->sensors, known_parent);
+                } else {
+                    log_error("Unable to detect previous parent and none provided");
+                    fty_proto_destroy (&asset);
+                    return 1;
+                }
             }
-            external_sensor_t *sensor = (external_sensor_t *)search_sensor(self->sensors, parent1);
             if (streq (operation, FTY_PROTO_ASSET_OP_DELETE) ||
                     streq (operation, FTY_PROTO_ASSET_OP_RETIRE) ||
                     !streq(fty_proto_aux_string (asset, FTY_PROTO_ASSET_STATUS, "active"), "active")) {
@@ -416,6 +421,24 @@ handle_proto_sensor(fty_sensor_env_server_t *self, zmsg_t *message) {
                 }
             } else if (streq (operation, FTY_PROTO_ASSET_OP_CREATE) ||
                     streq (operation, FTY_PROTO_ASSET_OP_UPDATE)) {
+                if (!port || !parent1) {
+                    log_error ("Attempted to create sensorgpio, but missing %s in asset message",
+                            port ? parent1 ? "" : "parent1" : parent1 ? "port" : "port and parent1");
+                    fty_proto_destroy (&asset);
+                    return 1;
+                }
+                // ignore sensors that don't have parent2 rackcontroller-0 - parent1 must be some EMP sensor
+                const char *parent2 = fty_proto_aux_string(asset, "parent_name.2", NULL);
+                if (!parent2) {
+                    log_error ("Attempted to create sensorgpio, but missing parent2 in asset message");
+                    fty_proto_destroy (&asset);
+                    return 1;
+                }
+                if (! streq (parent2, "rackcontroller-0")) {
+                    log_debug ("parent2 not rackcontroller-0, skipping this one");
+                    fty_proto_destroy (&asset);
+                    return 1;
+                }
                 if (sensor) {
                     // delete gpi sensor if there was one attached to different env one
                     const char *previous_parent = (char *) zhash_lookup(self->gpi_env_pairing, name);
@@ -461,11 +484,6 @@ handle_proto_sensor(fty_sensor_env_server_t *self, zmsg_t *message) {
             }
         }
         else if (0 == strncmp(subtype, "sensor", strlen("sensor"))) {
-            // ignore sensors that don't have parent1 rackcontroller-0
-            if (! streq (parent1, "rackcontroller-0")) {
-                fty_proto_destroy (&asset);
-                return 1;
-            }
             external_sensor_t *sensor = (external_sensor_t *)search_sensor(self->sensors, name);
             if (streq (operation, FTY_PROTO_ASSET_OP_DELETE) ||
                     streq (operation, FTY_PROTO_ASSET_OP_RETIRE) ||
@@ -481,6 +499,18 @@ handle_proto_sensor(fty_sensor_env_server_t *self, zmsg_t *message) {
                 }
             } else if (streq (operation, FTY_PROTO_ASSET_OP_CREATE) ||
                     streq (operation, FTY_PROTO_ASSET_OP_UPDATE)) {
+                if (!port || !parent1) {
+                    log_error ("Attempted to create sensorgpio, but missing %s in asset message",
+                            port ? parent1 ? "" : "parent1" : parent1 ? "port" : "port and parent1");
+                    fty_proto_destroy (&asset);
+                    return 1;
+                }
+                // ignore sensors that don't have parent1 rackcontroller-0
+                if (! streq (parent1, "rackcontroller-0")) {
+                    log_debug ("parent1 not rackcontroller-0, skipping this one");
+                    fty_proto_destroy (&asset);
+                    return 1;
+                }
                 if (sensor) {
                     // update sensor
                     sensor->valid = VALID;
