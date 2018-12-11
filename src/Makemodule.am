@@ -14,13 +14,8 @@ pkgconfig_DATA = src/libfty_sensor_env.pc
 
 src_libfty_sensor_env_la_SOURCES = \
     src/libth.c \
+    src/fty_sensor_env_server.c \
     src/platform.h
-
-if ENABLE_DRAFTS
-src_libfty_sensor_env_la_SOURCES += \
-    src/fty_sensor_env_server.c
-
-endif
 
 if ENABLE_DRAFTS
 src_libfty_sensor_env_la_SOURCES += \

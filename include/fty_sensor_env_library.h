@@ -73,23 +73,14 @@
 #   endif
 #endif
 
-//  Project has no stable classes, so we build the draft API
-#undef  FTY_SENSOR_ENV_BUILD_DRAFT_API
-#define FTY_SENSOR_ENV_BUILD_DRAFT_API
-
 //  Opaque class structures to allow forward references
 //  These classes are stable or legacy and built in all releases
-//  Draft classes are by default not built in stable releases
-#ifdef FTY_SENSOR_ENV_BUILD_DRAFT_API
 typedef struct _fty_sensor_env_server_t fty_sensor_env_server_t;
 #define FTY_SENSOR_ENV_SERVER_T_DEFINED
-#endif // FTY_SENSOR_ENV_BUILD_DRAFT_API
 
 
 //  Public classes, each with its own header file
-#ifdef FTY_SENSOR_ENV_BUILD_DRAFT_API
 #include "fty_sensor_env_server.h"
-#endif // FTY_SENSOR_ENV_BUILD_DRAFT_API
 
 #ifdef FTY_SENSOR_ENV_BUILD_DRAFT_API
 
