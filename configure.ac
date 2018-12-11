@@ -532,15 +532,15 @@ AS_IF([test x"${search_log4cplus}" = xyes], [
         log4cplus_synthetic_libs="-llog4cplus"
 
         if test -n "${with_log4cplus}" && test x"${with_log4cplus}" != xyes && test x"${with_log4cplus}" != xno; then
-            if test -r "${with_log4cplus}/include/log4cplus/logger.h"; then
+            if test -r "${with_log4cplus}/include/log4cplus/clogger.h"; then
                 log4cplus_synthetic_cflags="-I${with_log4cplus}/include"
                 log4cplus_synthetic_libs="-L${with_log4cplus}/lib -llog4cplus"
             else
-            AC_MSG_ERROR([Header file ${with_log4cplus}/include/log4cplus/logger.h was not found. Please check log4cplus prefix])
+            AC_MSG_ERROR([Header file ${with_log4cplus}/include/log4cplus/clogger.h was not found. Please check log4cplus prefix])
             fi
         else
-            AC_CHECK_HEADER([log4cplus/logger.h], [],
-            AC_MSG_ERROR([Header file log4cplus/logger.h was not found in default search paths])
+            AC_CHECK_HEADER([log4cplus/clogger.h], [],
+            AC_MSG_ERROR([Header file log4cplus/clogger.h was not found in default search paths])
                 )
         fi
 
@@ -998,8 +998,26 @@ AM_COND_IF([WITH_SYSTEMD_UNITS],
     AC_SUBST(WITH_SYSTEMD_UNITS)],
     [])
 
-# Project has no stable classes so enable draft API by default
-enable_drafts=yes
+if test "x$cross_compiling" = "xyes"; then
+    #   Enable draft by default when cross-compiling
+    defaultval=yes
+else
+    # enable draft API by default if we're in a git repository
+    # else disable it by default; then allow --enable-drafts=yes/no override
+    AC_CHECK_FILE($srcdir/.git, [defaultval=yes],
+        [AC_MSG_CHECKING([running under a git repository workspace])
+         AS_IF([git rev-parse --show-toplevel 2>/dev/null],
+            [defaultval=yes],
+            [defaultval=no])
+         AC_MSG_RESULT($defaultval)
+        ])
+fi
+
+AC_ARG_ENABLE([drafts],
+    AS_HELP_STRING([--enable-drafts],
+        [Build and install draft classes and methods [default=yes]]),
+    [enable_drafts=$enableval],
+    [enable_drafts=$defaultval])
 
 AM_CONDITIONAL([ENABLE_DRAFTS], [test x$enable_drafts != xno])
 
