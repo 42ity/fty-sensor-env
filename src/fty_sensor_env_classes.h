@@ -32,13 +32,13 @@
 //  External API
 #include "../include/fty_sensor_env.h"
 
-//  Extra headers
-
 //  Opaque class structures to allow forward references
 #ifndef LIBTH_T_DEFINED
 typedef struct _libth_t libth_t;
 #define LIBTH_T_DEFINED
 #endif
+
+//  Extra headers
 
 //  Internal API
 
