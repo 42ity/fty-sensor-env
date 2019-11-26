@@ -1,0 +1,6 @@
+   fty-sensor-env -> libsodium;
+   fty-sensor-env -> libzmq;
+   fty-sensor-env -> czmq;
+   fty-sensor-env -> malamute;
+   fty-sensor-env -> fty-common-logging;
+   fty-sensor-env -> fty-proto;
