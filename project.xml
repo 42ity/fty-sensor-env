@@ -43,7 +43,17 @@
 
     <use project = "czmq"
         repository = "https://github.com/42ity/czmq.git"
-        min_major = "3" min_minor = "0" min_patch = "2" />
+        min_major = "3" min_minor = "0" min_patch = "2" >
+
+        <use project = "libzmq"
+            repository = "https://github.com/42ity/libzmq.git" >
+
+            <use project = "libsodium" prefix = "sodium"
+                repository = "https://github.com/42ity/libsodium.git"
+                test = "sodium_init"
+                />
+        </use>
+    </use>
 
     <use project = "malamute" min_major = "1" test = "mlm_server_test"
         repository = "https://github.com/42ity/malamute.git" />

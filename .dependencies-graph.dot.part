@@ -1,3 +1,4 @@
+   fty-sensor-env -> libsodium;
    fty-sensor-env -> libzmq;
    fty-sensor-env -> czmq;
    fty-sensor-env -> malamute;
