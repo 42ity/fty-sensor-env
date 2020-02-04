@@ -71,8 +71,7 @@
 
     <class name = "libth" private = "1" stable = "1">Temperature and humidity lib</class>
     <class name = "fty-sensor-env-server" stable = "1">Grab temperature and humidity data from sensors attached to the box</class>
-    <main name = "fty-sensor-env" service = "1" no_config = "1">
-        Runs fty-sensor-env-server class
-    </main>
+
+    <main name = "fty-sensor-env" service = "1" no_config = "1">Runs fty-sensor-env-server class</main>
 
 </project>
