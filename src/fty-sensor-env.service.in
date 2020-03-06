@@ -4,6 +4,10 @@ Requires=malamute.service
 After=malamute.service
 PartOf=bios.target
 
+After=fty-asset.service
+Requires=fty-asset.service
+BindsTo=fty-asset.service
+
 [Service]
 Type=simple
 Restart=always
