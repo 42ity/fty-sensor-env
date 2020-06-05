@@ -228,7 +228,7 @@ int get_th_data(int fd, unsigned char what) {
 
     msleep(50);
 
-    for(int i=0;i<100000 && get_rx(fd); i++);
+    for(int i=0;i<100000 && get_rx(fd); i++)
         usleep(100);
 
     if(get_rx(fd))
