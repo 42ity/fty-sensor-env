@@ -1,6 +1,6 @@
 #!/usr/bin/env groovy
 
-@Library('etn-ipm2-jenkins@feature/disableConcurrentBuilds-option') _
+@Library('etn-ipm2-jenkins') _
 
 //We want only release build and deploy in OBS
 //We disabled debug build with tests
